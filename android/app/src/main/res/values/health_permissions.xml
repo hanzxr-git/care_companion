@@ -1,0 +1,5 @@
+<resources>
+    <array name="health_permissions">
+        <item>android.permission.health.READ_HEART_RATE</item>
+    </array>
+</resources>
