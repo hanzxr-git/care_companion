@@ -190,15 +190,8 @@ class FirestoreService {
 
   /// Check if user has checked in today
   Future<bool> hasCheckedInToday(String uid, String circleId) async {
-    final today = DateTime.now();
-    final startOfDay = DateTime(today.year, today.month, today.day);
-    final query = await _checkins
-      .where('uid', isEqualTo: uid)
-      .where('circleId', isEqualTo: circleId)
-      .where('timestamp', isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay))
-      .limit(1)
-      .get();
-    return query.docs.isNotEmpty;
+    final todayCheckin = await getTodayCheckin(uid, circleId);
+    return todayCheckin != null;
   }
 
   /// Get today's check-in for a user
@@ -207,35 +200,42 @@ class FirestoreService {
     final startOfDay = DateTime(today.year, today.month, today.day);
     final query = await _checkins
       .where('uid', isEqualTo: uid)
-      .where('circleId', isEqualTo: circleId)
-      .where('timestamp', isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay))
-      .limit(1)
       .get();
-    if (query.docs.isEmpty) return null;
-    return CheckinModel.fromDoc(query.docs.first);
+
+    final matches = query.docs
+      .map(CheckinModel.fromDoc)
+      .where((c) => c.circleId == circleId && c.timestamp.isAfter(startOfDay))
+      .toList();
+
+    if (matches.isEmpty) return null;
+    matches.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+    return matches.first;
   }
 
   /// Stream last 14 check-ins for a user
   Stream<List<CheckinModel>> streamRecentCheckins(String uid, String circleId) =>
     _checkins
       .where('uid', isEqualTo: uid)
-      .where('circleId', isEqualTo: circleId)
-      .orderBy('timestamp', descending: true)
-      .limit(14)
       .snapshots()
-      .map((q) => q.docs.map(CheckinModel.fromDoc).toList());
+      .map((q) {
+        final list = q.docs.map(CheckinModel.fromDoc).toList();
+        final filtered = list.where((c) => c.circleId == circleId).toList();
+        filtered.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+        return filtered.take(14).toList();
+      });
 
   /// Calculate current streak from previous check-ins
   Future<int> _calculateStreak(String uid, String circleId) async {
     final query = await _checkins
       .where('uid', isEqualTo: uid)
-      .where('circleId', isEqualTo: circleId)
-      .orderBy('timestamp', descending: true)
-      .limit(1)
       .get();
 
-    if (query.docs.isEmpty) return 0;
-    final last = CheckinModel.fromDoc(query.docs.first);
+    final list = query.docs.map(CheckinModel.fromDoc).toList();
+    final filtered = list.where((c) => c.circleId == circleId).toList();
+    if (filtered.isEmpty) return 0;
+
+    filtered.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+    final last = filtered.first;
     final lastDate = DateTime(
       last.timestamp.year, last.timestamp.month, last.timestamp.day);
     final yesterday = DateTime.now().subtract(const Duration(days: 1));
@@ -279,10 +279,13 @@ class FirestoreService {
   Stream<List<MedicineModel>> streamMedicines(String uid) =>
     _medicines
       .where('uid', isEqualTo: uid)
-      .where('active', isEqualTo: true)
-      .orderBy('createdAt')
       .snapshots()
-      .map((q) => q.docs.map(MedicineModel.fromDoc).toList());
+      .map((q) {
+        final list = q.docs.map(MedicineModel.fromDoc).toList();
+        final filtered = list.where((m) => m.active).toList();
+        filtered.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+        return filtered;
+      });
 
   /// Delete (deactivate) a medicine
   Future<void> deactivateMedicine(String medId) async {
@@ -314,9 +317,12 @@ class FirestoreService {
     final startOfDay = DateTime(today.year, today.month, today.day);
     return _medLogs
       .where('uid', isEqualTo: uid)
-      .where('takenAt', isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay))
       .snapshots()
-      .map((q) => q.docs.map(MedLogModel.fromDoc).toList());
+      .map((q) {
+        final list = q.docs.map(MedLogModel.fromDoc).toList();
+        final filtered = list.where((log) => log.takenAt.isAfter(startOfDay)).toList();
+        return filtered;
+      });
   }
 
   // ─── LOCATION ────────────────────────────────────────────

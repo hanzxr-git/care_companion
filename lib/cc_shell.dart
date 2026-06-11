@@ -18,13 +18,35 @@ class Shell extends StatefulWidget {
 }
 
 class _ShellState extends State<Shell> {
+  late final PageController _pageController;
   int _i = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController(initialPage: _i);
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final e = context.elder;
     final pages = [
-      HomeTab(circle: widget.circle),
+      HomeTab(
+        circle: widget.circle,
+        onNavigateToTab: (index) {
+          _pageController.animateToPage(
+            index,
+            duration: const Duration(milliseconds: 400),
+            curve: Curves.easeInOutCubic,
+          );
+        },
+      ),
       CheckinTab(circle: widget.circle),
       MedsTab(circle: widget.circle),
       MonitorTab(circle: widget.circle),
@@ -32,14 +54,29 @@ class _ShellState extends State<Shell> {
     ];
 
     return Scaffold(
-      body: pages[_i],
+      body: PageView(
+        controller: _pageController,
+        physics: const NeverScrollableScrollPhysics(),
+        onPageChanged: (index) {
+          setState(() {
+            _i = index;
+          });
+        },
+        children: pages,
+      ),
       bottomNavigationBar: Container(
         decoration: const BoxDecoration(
           color: C.surface,
           border: Border(top: BorderSide(color: C.divider))),
         child: NavigationBar(
           selectedIndex: _i,
-          onDestinationSelected: (i) => setState(() => _i = i),
+          onDestinationSelected: (i) {
+            _pageController.animateToPage(
+              i,
+              duration: const Duration(milliseconds: 400),
+              curve: Curves.easeInOutCubic,
+            );
+          },
           backgroundColor: C.surface,
           elevation: 0,
           height: e ? 72 : 64,

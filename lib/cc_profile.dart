@@ -52,11 +52,8 @@ class _S extends State<ProfileTab> {
               Text(user.email!, style: TextStyle(
                 fontSize: context.fs(C.fSub), color: C.textMid)),
             ],
-            const SizedBox(height: 12),
             Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-              _badge('FAMILY MEMBER', e, context),
-              const SizedBox(width: 8),
-              _badge('MONITOR', e, context),
+              _badge(e ? 'USER' : 'ADMIN', true, context),
             ]),
           ])),
 
@@ -84,7 +81,7 @@ class _S extends State<ProfileTab> {
           _secLabel('APPEARANCE', context),
           _swTile(
             icon: Icons.phone_android_outlined,
-            title: 'Elder Mode',
+            title: 'User Mode',
             value: e,
             onChanged: (v) {
               widget.onToggleElder(v);

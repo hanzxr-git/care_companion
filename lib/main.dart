@@ -7,6 +7,7 @@ import 'firebase_options.dart';
 import 'cc_theme.dart';
 import 'services/auth_service.dart';
 import 'services/firestore_service.dart';
+import 'services/location_service.dart';
 import 'screens/auth/phone_screen.dart';
 import 'screens/auth/setup_circle_screen.dart';
 import 'models/circle_model.dart';
@@ -31,6 +32,9 @@ class AppRoot extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => AuthService()),
         Provider(create: (_) => FirestoreService()),
+        ProxyProvider<FirestoreService, LocationService>(
+          update: (_, db, __) => LocationService(db),
+        ),
       ],
       child: const _AppWrapper(),
     );
