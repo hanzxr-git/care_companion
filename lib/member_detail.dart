@@ -222,14 +222,26 @@ class _StrTab extends StatelessWidget {
                           value: (streakDays % 30) / 30.0,
                           strokeWidth: 10,
                           backgroundColor: C.divider,
-                          color: C.fire,
+                          color: checkedInToday
+                              ? (streakDays >= 200
+                                  ? Colors.purple
+                                  : (streakDays >= 100 ? Colors.orange : Colors.red))
+                              : Colors.grey.shade300,
                           strokeCap: StrokeCap.round,
                         ),
                       ),
                       Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.local_fire_department_rounded, color: C.fire, size: e ? 38 : 32),
+                          Icon(
+                            Icons.local_fire_department_rounded,
+                            color: checkedInToday
+                                ? (streakDays >= 200
+                                    ? Colors.purple
+                                    : (streakDays >= 100 ? Colors.orange : Colors.red))
+                                : Colors.grey.shade400,
+                            size: e ? 38 : 32,
+                          ),
                           Text(
                             '$streakDays',
                             style: TextStyle(fontSize: context.fs(e ? 56 : 48), fontWeight: FontWeight.w900, color: C.textDark, height: 1.0),

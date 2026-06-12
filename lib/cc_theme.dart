@@ -203,7 +203,20 @@ class CC extends StatelessWidget {
   final EdgeInsets? pad;
   final Color? bg;
   final VoidCallback? onTap;
-  const CC({super.key, required this.child, this.pad, this.bg, this.onTap});
+  final List<BoxShadow>? boxShadow;
+  final BorderRadius? borderRadius;
+  final Border? border;
+
+  const CC({
+    super.key,
+    required this.child,
+    this.pad,
+    this.bg,
+    this.onTap,
+    this.boxShadow,
+    this.borderRadius,
+    this.border,
+  });
 
   @override
   Widget build(BuildContext context) => GestureDetector(
@@ -213,7 +226,16 @@ class CC extends StatelessWidget {
       padding: pad ?? const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: bg ?? C.surface,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: borderRadius ?? BorderRadius.circular(18),
+        border: border,
+        boxShadow: boxShadow ?? [
+          BoxShadow(
+            color: C.textDark.withValues(alpha: 0.06),
+            blurRadius: 14,
+            spreadRadius: 1,
+            offset: const Offset(0, 5),
+          ),
+        ],
       ),
       child: child,
     ),
@@ -232,4 +254,107 @@ class CapLabel extends StatelessWidget {
       color: C.textMid,
       letterSpacing: 1.2,
     ));
+}
+
+class PressableCard extends StatefulWidget {
+  final Widget child;
+  final VoidCallback? onTap;
+  final double scaleOnPress;
+  final Color? color;
+  final BorderRadius? borderRadius;
+  final BoxBorder? border;
+  final List<BoxShadow>? boxShadow;
+  final EdgeInsetsGeometry? padding;
+
+  const PressableCard({
+    super.key,
+    required this.child,
+    this.onTap,
+    this.scaleOnPress = 0.97,
+    this.color,
+    this.borderRadius,
+    this.border,
+    this.boxShadow,
+    this.padding,
+  });
+
+  @override
+  State<PressableCard> createState() => _PressableCardState();
+}
+
+class _PressableCardState extends State<PressableCard> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _scaleAnimation;
+  bool _isHovered = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 100),
+    );
+    _scaleAnimation = Tween<double>(begin: 1.0, end: widget.scaleOnPress).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final defaultShadow = [
+      BoxShadow(
+        color: C.textDark.withValues(alpha: 0.06),
+        blurRadius: 14,
+        spreadRadius: 1,
+        offset: const Offset(0, 5),
+      ),
+    ];
+
+    Widget current = MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: ScaleTransition(
+        scale: _scaleAnimation,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: widget.padding ?? const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            color: widget.color ?? C.surface,
+            borderRadius: widget.borderRadius ?? BorderRadius.circular(18),
+            border: widget.border,
+            boxShadow: widget.boxShadow ?? (_isHovered
+                ? [
+                    BoxShadow(
+                      color: C.primary.withValues(alpha: 0.12),
+                      blurRadius: 16,
+                      offset: const Offset(0, 6),
+                    ),
+                  ]
+                : defaultShadow),
+          ),
+          child: widget.child,
+        ),
+      ),
+    );
+
+    if (widget.onTap != null) {
+      current = GestureDetector(
+        onTapDown: (_) => _controller.forward(),
+        onTapUp: (_) {
+          _controller.reverse();
+          widget.onTap!();
+        },
+        onTapCancel: () => _controller.reverse(),
+        child: current,
+      );
+    }
+
+    return current;
+  }
 }

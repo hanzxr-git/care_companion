@@ -266,9 +266,28 @@ class _MemberCard extends StatelessWidget {
                                 const SizedBox(width: 8),
                                 Row(
                                   children: [
-                                    Icon(Icons.local_fire_department_rounded, color: C.fire, size: elder ? 17 : 15),
+                                    Icon(
+                                      Icons.local_fire_department_rounded,
+                                      color: checkedInToday
+                                          ? (streakDays >= 200
+                                              ? Colors.purple
+                                              : (streakDays >= 100 ? Colors.orange : Colors.red))
+                                          : Colors.grey.shade400,
+                                      size: elder ? 17 : 15,
+                                    ),
                                     const SizedBox(width: 2),
-                                    Text('$streakDays', style: TextStyle(fontSize: context.fs(C.fSub), fontWeight: FontWeight.w900, color: C.fire)),
+                                    Text(
+                                      '$streakDays',
+                                      style: TextStyle(
+                                        fontSize: context.fs(C.fSub),
+                                        fontWeight: FontWeight.w900,
+                                        color: checkedInToday
+                                            ? (streakDays >= 200
+                                                ? Colors.purple
+                                                : (streakDays >= 100 ? Colors.orange : Colors.red))
+                                            : Colors.grey.shade400,
+                                      ),
+                                    ),
                                   ],
                                 ),
                               ],

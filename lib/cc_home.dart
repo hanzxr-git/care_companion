@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
 import 'cc_theme.dart';
+import 'cc_invite.dart';
+import 'member_detail.dart';
 import 'models/circle_model.dart';
 import 'models/user_model.dart';
 import 'models/checkin_model.dart';
@@ -387,17 +389,20 @@ class _HomeTabState extends State<HomeTab> {
                                 PressableCard(
                                   onTap: () => widget.onNavigateToTab?.call(1),
                                   padding: EdgeInsets.zero,
+                                  color: Colors.transparent,
+                                  borderRadius: BorderRadius.circular(28),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: C.primary.withValues(alpha: 0.08),
-                                      blurRadius: 12,
-                                      offset: const Offset(0, 4),
+                                      color: C.primary.withValues(alpha: 0.10),
+                                      blurRadius: 16,
+                                      spreadRadius: 1,
+                                      offset: const Offset(0, 6),
                                     ),
                                   ],
                                   child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+                                    padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 22),
                                     decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(24),
+                                      borderRadius: BorderRadius.circular(28),
                                       border: Border.all(color: const Color(0xFFCCC5FD), width: 1.5),
                                       gradient: const LinearGradient(
                                         begin: Alignment.centerLeft,
@@ -427,7 +432,11 @@ class _HomeTabState extends State<HomeTab> {
                                           alignment: Alignment.center,
                                           child: Icon(
                                             Icons.whatshot_rounded,
-                                            color: streakDays > 0 ? const Color(0xFFFA5E2E) : Colors.grey.shade400,
+                                            color: todayCheckin != null
+                                                ? (streakDays >= 200
+                                                    ? Colors.purple
+                                                    : (streakDays >= 100 ? Colors.orange : Colors.red))
+                                                : Colors.grey.shade400,
                                             size: e ? 28 : 24,
                                           ),
                                         ),
@@ -483,8 +492,9 @@ class _HomeTabState extends State<HomeTab> {
                                     borderRadius: BorderRadius.circular(24),
                                     boxShadow: [
                                       BoxShadow(
-                                        color: Colors.black.withValues(alpha: 0.03),
-                                        blurRadius: 12,
+                                        color: Colors.black.withValues(alpha: 0.06),
+                                        blurRadius: 16,
+                                        spreadRadius: 1,
                                         offset: const Offset(0, 6),
                                       ),
                                     ],
@@ -600,6 +610,14 @@ class _HomeTabState extends State<HomeTab> {
                                         ),
                                         const SizedBox(height: 10),
                                         PressableCard(
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: Colors.black.withValues(alpha: 0.06),
+                                              blurRadius: 16,
+                                              spreadRadius: 1,
+                                              offset: const Offset(0, 6),
+                                            ),
+                                          ],
                                           onTap: () => _refreshLocation(targetUid, sharing),
                                           padding: const EdgeInsets.all(12),
                                           child: Column(
@@ -807,10 +825,380 @@ class _HomeTabState extends State<HomeTab> {
                                           ),
                                         ),
                                       ],
-                                    );
-                                  },
-                                ),
-                                const SizedBox(height: 22),
+                                     );
+                                   },
+                                 ),
+                                 const SizedBox(height: 22),
+
+                                 // ── Family Circle Section
+                                 Row(
+                                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                   children: [
+                                     const CapLabel('FAMILY CIRCLE'),
+                                     GestureDetector(
+                                       onTap: () => widget.onNavigateToTab?.call(3),
+                                       child: Text(
+                                         'MANAGE',
+                                         style: TextStyle(
+                                           fontSize: context.fs(C.fCap),
+                                           fontWeight: FontWeight.w900,
+                                           color: C.primary,
+                                           decoration: TextDecoration.underline,
+                                           letterSpacing: 1.2,
+                                         ),
+                                       ),
+                                     ),
+                                   ],
+                                 ),
+                                 const SizedBox(height: 10),
+
+                                 StreamBuilder<List<UserModel>>(
+                                   stream: db.streamCircleMemberProfiles(widget.circle.memberUids),
+                                   builder: (context, membersSnap) {
+                                     final members = membersSnap.data ?? [];
+                                     final otherMembers = members.where((m) => m.uid != auth.uid).toList();
+
+                                     if (otherMembers.isEmpty) {
+                                       return PressableCard(
+                                         onTap: () {
+                                           widget.onNavigateToTab?.call(3);
+                                           Future.delayed(const Duration(milliseconds: 500), () {
+                                             if (mounted) {
+                                               showModalBottomSheet(
+                                                 context: context,
+                                                 isScrollControlled: true,
+                                                 backgroundColor: Colors.transparent,
+                                                 builder: (_) => InviteSheet(circle: widget.circle),
+                                               );
+                                             }
+                                           });
+                                         },
+                                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+                                         child: Column(
+                                           mainAxisSize: MainAxisSize.min,
+                                           children: [
+                                             Container(
+                                               width: 56,
+                                               height: 56,
+                                               decoration: const BoxDecoration(
+                                                 color: C.primarySoft,
+                                                 shape: BoxShape.circle,
+                                               ),
+                                               child: const Icon(Icons.people_outline_rounded, color: C.primary, size: 28),
+                                             ),
+                                             const SizedBox(height: 14),
+                                             Text(
+                                               'No other circle members',
+                                               style: TextStyle(
+                                                 fontSize: context.fs(C.fBody),
+                                                 color: C.textDark,
+                                                 fontWeight: FontWeight.w800,
+                                               ),
+                                               textAlign: TextAlign.center,
+                                             ),
+                                             const SizedBox(height: 4),
+                                             Text(
+                                               'Add members to start sharing location, checking in, and monitoring together.',
+                                               style: TextStyle(
+                                                 fontSize: context.fs(C.fSub),
+                                                 color: C.textMid,
+                                                 fontWeight: FontWeight.w600,
+                                               ),
+                                               textAlign: TextAlign.center,
+                                             ),
+                                             const SizedBox(height: 18),
+                                             Material(
+                                               color: C.primary,
+                                               borderRadius: BorderRadius.circular(24),
+                                               child: InkWell(
+                                                 onTap: () {
+                                                   widget.onNavigateToTab?.call(3);
+                                                   Future.delayed(const Duration(milliseconds: 500), () {
+                                                     if (mounted) {
+                                                       showModalBottomSheet(
+                                                         context: context,
+                                                         isScrollControlled: true,
+                                                         backgroundColor: Colors.transparent,
+                                                         builder: (_) => InviteSheet(circle: widget.circle),
+                                                       );
+                                                     }
+                                                   });
+                                                 },
+                                                 borderRadius: BorderRadius.circular(24),
+                                                 splashColor: Colors.white24,
+                                                 child: Container(
+                                                   width: double.infinity,
+                                                   padding: const EdgeInsets.symmetric(vertical: 14),
+                                                   child: Row(
+                                                     mainAxisAlignment: MainAxisAlignment.center,
+                                                     children: [
+                                                       const Icon(Icons.add_rounded, color: Colors.white, size: 20),
+                                                       const SizedBox(width: 8),
+                                                       Text(
+                                                         'Add Member',
+                                                         style: TextStyle(
+                                                           color: Colors.white,
+                                                           fontWeight: FontWeight.w900,
+                                                           fontSize: context.fs(C.fBody),
+                                                         ),
+                                                       ),
+                                                     ],
+                                                   ),
+                                                 ),
+                                               ),
+                                             ),
+                                           ],
+                                         ),
+                                       );
+                                     }
+
+                                     return Container(
+                                       padding: const EdgeInsets.all(12),
+                                       decoration: BoxDecoration(
+                                         color: C.primarySoft.withValues(alpha: 0.4),
+                                         borderRadius: BorderRadius.circular(24),
+                                         border: Border.all(color: const Color(0xFFCCC5FD).withValues(alpha: 0.5), width: 1.5),
+                                         boxShadow: [
+                                           BoxShadow(
+                                             color: Colors.black.withValues(alpha: 0.06),
+                                             blurRadius: 16,
+                                             spreadRadius: 1,
+                                             offset: const Offset(0, 6),
+                                           ),
+                                         ],
+                                       ),
+                                       child: Column(
+                                         children: otherMembers.asMap().entries.map((en) {
+                                           final idx = en.key;
+                                           final member = en.value;
+
+                                           return Column(
+                                             children: [
+                                               if (idx > 0) const SizedBox(height: 12),
+                                               PressableCard(
+                                                 onTap: () {
+                                                   Navigator.push(
+                                                     context,
+                                                     MaterialPageRoute(
+                                                       builder: (_) => MemberDetailScreen(member: member, circle: widget.circle),
+                                                     ),
+                                                   );
+                                                 },
+                                                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                                                 child: Row(
+                                                   children: [
+                                                     // Avatar with border and optional alert dot
+                                                     Stack(
+                                                       clipBehavior: Clip.none,
+                                                       children: [
+                                                         Container(
+                                                           decoration: BoxDecoration(
+                                                             shape: BoxShape.circle,
+                                                             border: Border.all(color: C.primary, width: 2),
+                                                           ),
+                                                           padding: const EdgeInsets.all(2),
+                                                           child: CircleAvatar(
+                                                             radius: 24,
+                                                             backgroundColor: Color(member.avatarColorValue),
+                                                             child: Text(
+                                                               member.avatarInitials,
+                                                               style: const TextStyle(
+                                                                 color: Colors.white,
+                                                                 fontWeight: FontWeight.w900,
+                                                               ),
+                                                             ),
+                                                           ),
+                                                         ),
+                                                         if (member.sosActive)
+                                                           Positioned(
+                                                             top: 0,
+                                                             right: 0,
+                                                             child: Container(
+                                                               width: 14,
+                                                               height: 14,
+                                                               decoration: const BoxDecoration(
+                                                                 color: Color(0xFFFF6B6B),
+                                                                 shape: BoxShape.circle,
+                                                               ),
+                                                             ),
+                                                           ),
+                                                       ],
+                                                     ),
+                                                     const SizedBox(width: 14),
+                                                     // Details Column
+                                                     Expanded(
+                                                       child: Column(
+                                                         crossAxisAlignment: CrossAxisAlignment.start,
+                                                         children: [
+                                                           // Name row + streak + mood
+                                                           StreamBuilder<List<CheckinModel>>(
+                                                             stream: db.streamRecentCheckins(member.uid, widget.circle.circleId),
+                                                             builder: (context, checkinSnap) {
+                                                               final checkins = checkinSnap.data ?? [];
+                                                               final todayCheckin = checkins.isEmpty ? null : (checkins.first.isToday ? checkins.first : null);
+                                                               final streakDays = _calculateActiveStreak(checkins);
+                                                               final moodEmoji = _moods.firstWhere((m) => m.$2 == todayCheckin?.mood?.toUpperCase(), orElse: () => ('', '')).$1;
+                                                               final streakActive = streakDays > 0;
+
+                                                               return Row(
+                                                                 children: [
+                                                                   Expanded(
+                                                                     child: Text(
+                                                                       _capitalizeEachWord(member.displayName),
+                                                                       style: TextStyle(
+                                                                         fontSize: context.fs(C.fBody),
+                                                                         fontWeight: FontWeight.w800,
+                                                                         color: C.textDark,
+                                                                       ),
+                                                                       maxLines: 1,
+                                                                       overflow: TextOverflow.ellipsis,
+                                                                     ),
+                                                                   ),
+                                                                   const SizedBox(width: 8),
+                                                                   // Streak Pill
+                                                                   Container(
+                                                                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                                                     decoration: BoxDecoration(
+                                                                       color: C.primarySoft,
+                                                                       borderRadius: BorderRadius.circular(12),
+                                                                     ),
+                                                                     child: Row(
+                                                                       mainAxisSize: MainAxisSize.min,
+                                                                       children: [
+                                                                         Icon(
+                                                                           Icons.whatshot_rounded,
+                                                                           color: streakActive
+                                                                               ? (streakDays >= 200
+                                                                                   ? Colors.purple
+                                                                                   : (streakDays >= 100 ? Colors.orange : Colors.red))
+                                                                               : Colors.grey.shade400,
+                                                                           size: 14,
+                                                                         ),
+                                                                         const SizedBox(width: 4),
+                                                                         Text(
+                                                                           '$streakDays',
+                                                                           style: TextStyle(
+                                                                             fontSize: context.fs(C.fTiny),
+                                                                             fontWeight: FontWeight.w900,
+                                                                             color: C.primary,
+                                                                           ),
+                                                                         ),
+                                                                       ],
+                                                                     ),
+                                                                   ),
+                                                                   if (moodEmoji.isNotEmpty) ...[
+                                                                     const SizedBox(width: 8),
+                                                                     Text(
+                                                                       moodEmoji,
+                                                                       style: const TextStyle(fontSize: 24),
+                                                                     ),
+                                                                   ],
+                                                                 ],
+                                                               );
+                                                             },
+                                                           ),
+                                                           const SizedBox(height: 4),
+                                                           // Location row
+                                                           StreamBuilder<LocationModel?>(
+                                                             stream: db.streamLocation(member.uid),
+                                                             builder: (context, locSnap) {
+                                                               final loc = locSnap.data;
+                                                               final label = loc != null ? loc.label.toUpperCase() : 'UNKNOWN';
+                                                               final ago = loc != null ? loc.agoText.toUpperCase() : 'NEVER';
+
+                                                               return Text(
+                                                                 '$label · $ago',
+                                                                 style: TextStyle(
+                                                                   fontSize: context.fs(C.fSub),
+                                                                   color: C.textMid,
+                                                                   fontWeight: FontWeight.w600,
+                                                                 ),
+                                                               );
+                                                             },
+                                                           ),
+                                                           const SizedBox(height: 8),
+                                                           // Meds count pill + SOS Active pill
+                                                           StreamBuilder<List<MedicineModel>>(
+                                                             stream: db.streamMedicines(member.uid),
+                                                             builder: (context, medsSnap) {
+                                                               final medicines = medsSnap.data ?? [];
+                                                               return StreamBuilder<List<MedLogModel>>(
+                                                                 stream: db.streamTodayMedLogs(member.uid),
+                                                                 builder: (context, logsSnap) {
+                                                                   final logs = logsSnap.data ?? [];
+                                                                   final displayMeds = <_DisplayMed>[];
+                                                                   for (final med in medicines) {
+                                                                     if (!med.isScheduledToday) continue;
+                                                                     for (final time in med.times) {
+                                                                       final taken = logs.any((l) => l.medId == med.medId && l.scheduledTime == time);
+                                                                       displayMeds.add(_DisplayMed(med: med, time: time, taken: taken));
+                                                                     }
+                                                                   }
+
+                                                                   final takenCount = displayMeds.where((x) => x.taken).length;
+                                                                   final totalCount = displayMeds.length;
+
+                                                                   return Wrap(
+                                                                     spacing: 8,
+                                                                     runSpacing: 4,
+                                                                     children: [
+                                                                       Container(
+                                                                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                                                         decoration: BoxDecoration(
+                                                                           color: C.primarySoft.withValues(alpha: 0.5),
+                                                                           borderRadius: BorderRadius.circular(12),
+                                                                         ),
+                                                                         child: Text(
+                                                                           '$takenCount/$totalCount MEDS',
+                                                                           style: TextStyle(
+                                                                             fontSize: context.fs(C.fTiny),
+                                                                             fontWeight: FontWeight.w800,
+                                                                             color: C.primary,
+                                                                           ),
+                                                                         ),
+                                                                       ),
+                                                                       if (member.sosActive)
+                                                                         Container(
+                                                                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                                                           decoration: BoxDecoration(
+                                                                             color: const Color(0xFFFFB2B2),
+                                                                             borderRadius: BorderRadius.circular(12),
+                                                                           ),
+                                                                           child: const Text(
+                                                                             'SOS ACTIVE',
+                                                                             style: TextStyle(
+                                                                               fontSize: 10,
+                                                                               fontWeight: FontWeight.w900,
+                                                                               color: Color(0xFFD32F2F),
+                                                                             ),
+                                                                           ),
+                                                                         ),
+                                                                     ],
+                                                                   );
+                                                                 },
+                                                               );
+                                                             },
+                                                           ),
+                                                         ],
+                                                       ),
+                                                     ),
+                                                     const SizedBox(width: 8),
+                                                     Icon(
+                                                       Icons.chevron_right_rounded,
+                                                       color: C.textLight,
+                                                       size: context.ic,
+                                                     ),
+                                                   ],
+                                                 ),
+                                               ),
+                                             ],
+                                           );
+                                         }).toList(),
+                                       ),
+                                     );
+                                   },
+                                 ),
+                                 const SizedBox(height: 22),
 
                                 // ── Medications header
                                 Row(
@@ -848,9 +1236,10 @@ class _HomeTabState extends State<HomeTab> {
                                             borderRadius: BorderRadius.circular(24),
                                             boxShadow: [
                                               BoxShadow(
-                                                color: Colors.black.withValues(alpha: 0.04),
-                                                blurRadius: 10,
-                                                offset: const Offset(0, 4),
+                                                color: Colors.black.withValues(alpha: 0.06),
+                                                blurRadius: 16,
+                                                spreadRadius: 1,
+                                                offset: const Offset(0, 6),
                                               ),
                                             ],
                                           ),
@@ -934,6 +1323,14 @@ class _HomeTabState extends State<HomeTab> {
                                               children: [
                                                 if (idx > 0) const SizedBox(height: 10),
                                                 PressableCard(
+                                                  boxShadow: [
+                                                    BoxShadow(
+                                                      color: Colors.black.withValues(alpha: 0.06),
+                                                      blurRadius: 16,
+                                                      spreadRadius: 1,
+                                                      offset: const Offset(0, 6),
+                                                    ),
+                                                  ],
                                                   onTap: () => widget.onNavigateToTab?.call(2),
                                                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                                                   child: Row(
@@ -1012,35 +1409,40 @@ class _HomeTabState extends State<HomeTab> {
                                 const SizedBox(height: 22),
 
                                 // ── Emergency SOS
-                                PressableCard(
-                                  onTap: () => _sos(context, targetName),
-                                  color: C.red,
-                                  borderRadius: BorderRadius.circular(32),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: C.red.withValues(alpha: 0.3),
-                                      blurRadius: 12,
-                                      offset: const Offset(0, 6),
-                                    ),
-                                  ],
-                                  padding: EdgeInsets.symmetric(vertical: e ? 20 : 16),
-                                  child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Icon(Icons.warning_amber_rounded, color: Colors.white, size: e ? 28 : 24),
-                                      const SizedBox(width: 10),
-                                      Text(
-                                        'EMERGENCY SOS',
-                                        style: TextStyle(
-                                          fontSize: context.fs(C.fH3),
-                                          fontWeight: FontWeight.w900,
-                                          color: Colors.white,
-                                          letterSpacing: 1.5,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
+                                 PressableCard(
+                                   onTap: () => _sos(context, targetName, user.sosActive),
+                                   color: user.sosActive ? C.green : C.red,
+                                   borderRadius: BorderRadius.circular(32),
+                                   boxShadow: [
+                                     BoxShadow(
+                                       color: (user.sosActive ? C.green : C.red).withValues(alpha: 0.3),
+                                       blurRadius: 16,
+                                       spreadRadius: 1,
+                                       offset: const Offset(0, 6),
+                                     ),
+                                   ],
+                                   padding: EdgeInsets.symmetric(vertical: e ? 20 : 16),
+                                   child: Row(
+                                     mainAxisAlignment: MainAxisAlignment.center,
+                                     children: [
+                                       Icon(
+                                         user.sosActive ? Icons.check_circle_outline_rounded : Icons.warning_amber_rounded,
+                                         color: Colors.white,
+                                         size: e ? 28 : 24,
+                                       ),
+                                       const SizedBox(width: 10),
+                                       Text(
+                                         user.sosActive ? 'RESOLVE SOS ALERT' : 'EMERGENCY SOS',
+                                         style: TextStyle(
+                                           fontSize: context.fs(C.fH3),
+                                           fontWeight: FontWeight.w900,
+                                           color: Colors.white,
+                                           letterSpacing: 1.5,
+                                         ),
+                                       ),
+                                     ],
+                                   ),
+                                 ),
                               ]),
                             ),
                           ),
@@ -1057,25 +1459,42 @@ class _HomeTabState extends State<HomeTab> {
     );
   }
 
-  void _sos(BuildContext ctx, String name) => showDialog(
+  void _sos(BuildContext ctx, String name, bool active) => showDialog(
         context: ctx,
-        builder: (_) => AlertDialog(
+        builder: (dialogCtx) => AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-          title: const Text('Send SOS?', style: TextStyle(fontWeight: FontWeight.w900, fontSize: C.fH2)),
-          content: Text('This will immediately alert all family members in your circle about $name\'s emergency status.', style: const TextStyle(fontSize: C.fBody)),
+          title: Text(active ? 'Resolve SOS?' : 'Send SOS?', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: C.fH2)),
+          content: Text(
+            active
+                ? 'Are you sure you want to resolve the emergency alert for $name?'
+                : 'This will immediately alert all family members in your circle about $name\'s emergency status.',
+            style: const TextStyle(fontSize: C.fBody),
+          ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel', style: TextStyle(fontSize: C.fBody))),
+            TextButton(onPressed: () => Navigator.pop(dialogCtx), child: const Text('Cancel', style: TextStyle(fontSize: C.fBody))),
             ElevatedButton(
-              onPressed: () {
-                Navigator.pop(ctx);
-                ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content: Text('SOS Alert triggered!'), behavior: SnackBarBehavior.floating));
+              onPressed: () async {
+                Navigator.pop(dialogCtx);
+                final auth = ctx.read<AuthService>();
+                final db = ctx.read<FirestoreService>();
+                try {
+                  await db.updateUser(auth.uid!, {'sosActive': !active});
+                  if (ctx.mounted) {
+                    ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(
+                      content: Text(active ? 'SOS Alert resolved.' : 'SOS Alert triggered!'),
+                      behavior: SnackBarBehavior.floating,
+                    ));
+                  }
+                } catch (e) {
+                  // ignore
+                }
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: C.red,
+                backgroundColor: active ? C.green : C.red,
                 foregroundColor: Colors.white,
                 shape: const StadiumBorder(),
               ),
-              child: const Text('Send SOS', style: TextStyle(fontSize: C.fBody)),
+              child: Text(active ? 'Resolve' : 'Send SOS', style: const TextStyle(fontSize: C.fBody)),
             ),
           ],
         ),
@@ -1096,107 +1515,7 @@ class _DisplayMed {
   _DisplayMed({required this.med, required this.time, required this.taken});
 }
 
-class PressableCard extends StatefulWidget {
-  final Widget child;
-  final VoidCallback? onTap;
-  final double scaleOnPress;
-  final Color? color;
-  final BorderRadius? borderRadius;
-  final BoxBorder? border;
-  final List<BoxShadow>? boxShadow;
-  final EdgeInsetsGeometry? padding;
 
-  const PressableCard({
-    super.key,
-    required this.child,
-    this.onTap,
-    this.scaleOnPress = 0.97,
-    this.color,
-    this.borderRadius,
-    this.border,
-    this.boxShadow,
-    this.padding,
-  });
-
-  @override
-  State<PressableCard> createState() => _PressableCardState();
-}
-
-class _PressableCardState extends State<PressableCard> with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _scaleAnimation;
-  bool _isHovered = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 100),
-    );
-    _scaleAnimation = Tween<double>(begin: 1.0, end: widget.scaleOnPress).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-    );
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final defaultShadow = [
-      BoxShadow(
-        color: C.textDark.withValues(alpha: 0.04),
-        blurRadius: 10,
-        offset: const Offset(0, 4),
-      ),
-    ];
-
-    Widget current = MouseRegion(
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      child: ScaleTransition(
-        scale: _scaleAnimation,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          padding: widget.padding ?? const EdgeInsets.all(18),
-          decoration: BoxDecoration(
-            color: widget.color ?? C.surface,
-            borderRadius: widget.borderRadius ?? BorderRadius.circular(18),
-            border: widget.border,
-            boxShadow: widget.boxShadow ?? (_isHovered
-                ? [
-                    BoxShadow(
-                      color: C.primary.withValues(alpha: 0.12),
-                      blurRadius: 16,
-                      offset: const Offset(0, 6),
-                    ),
-                  ]
-                : defaultShadow),
-          ),
-          child: widget.child,
-        ),
-      ),
-    );
-
-    if (widget.onTap != null) {
-      current = GestureDetector(
-        onTapDown: (_) => _controller.forward(),
-        onTapUp: (_) {
-          _controller.reverse();
-          widget.onTap!();
-        },
-        onTapCancel: () => _controller.reverse(),
-        child: current,
-      );
-    }
-
-    return current;
-  }
-}
 
 class _AddMedicineSheet extends StatefulWidget {
   final String targetUid;

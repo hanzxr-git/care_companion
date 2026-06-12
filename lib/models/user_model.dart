@@ -10,6 +10,7 @@ class UserModel {
   final int avatarColorValue;
   final bool elderMode;
   final bool locationSharing;
+  final bool sosActive;
   final String? fcmToken;
   final DateTime createdAt;
 
@@ -22,6 +23,7 @@ class UserModel {
     required this.avatarColorValue,
     this.elderMode = false,
     this.locationSharing = true,
+    this.sosActive = false,
     this.fcmToken,
     required this.createdAt,
   });
@@ -63,6 +65,7 @@ class UserModel {
       avatarColorValue: d['avatarColorValue'] ?? 0xFF7C6FCD,
       elderMode: d['elderMode'] ?? false,
       locationSharing: d['locationSharing'] ?? true,
+      sosActive: d['sosActive'] ?? false,
       fcmToken: d['fcmToken'],
       createdAt: (d['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
     );
@@ -77,6 +80,7 @@ class UserModel {
     'avatarColorValue': avatarColorValue,
     'elderMode': elderMode,
     'locationSharing': locationSharing,
+    'sosActive': sosActive,
     if (fcmToken != null) 'fcmToken': fcmToken,
     'createdAt': Timestamp.fromDate(createdAt),
   };
@@ -86,6 +90,7 @@ class UserModel {
     String? email,
     bool? elderMode,
     bool? locationSharing,
+    bool? sosActive,
     String? fcmToken,
   }) => UserModel(
     uid: uid,
@@ -97,6 +102,7 @@ class UserModel {
     avatarColorValue: avatarColorValue,
     elderMode: elderMode ?? this.elderMode,
     locationSharing: locationSharing ?? this.locationSharing,
+    sosActive: sosActive ?? this.sosActive,
     fcmToken: fcmToken ?? this.fcmToken,
     createdAt: createdAt,
   );
