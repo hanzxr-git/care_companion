@@ -53,5 +53,10 @@ service cloud.firestore {
       allow write: if request.auth != null
                    && request.auth.uid == userId;
     }
+
+    // ─── LOGS ─────────────────────────────────────────────
+    match /logs/{logId} {
+      allow read, write: if request.auth != null;
+    }
   }
 }

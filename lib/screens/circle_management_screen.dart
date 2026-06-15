@@ -306,18 +306,7 @@ class _CircleManagementScreenState extends State<CircleManagementScreen> {
                       ),
                       child: Row(
                         children: [
-                          CircleAvatar(
-                            radius: 20,
-                            backgroundColor: Color(m.avatarColorValue).withValues(alpha: 0.15),
-                            child: Text(
-                              m.avatarInitials,
-                              style: TextStyle(
-                                color: Color(m.avatarColorValue),
-                                fontWeight: FontWeight.w900,
-                                fontSize: 13,
-                              ),
-                            ),
-                          ),
+                          m.buildAvatar(radius: 20),
                           const SizedBox(width: 12),
                           Expanded(
                             child: Column(

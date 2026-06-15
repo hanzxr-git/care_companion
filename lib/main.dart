@@ -13,6 +13,7 @@ import 'screens/auth/phone_screen.dart';
 import 'screens/auth/setup_circle_screen.dart';
 import 'screens/auth/pending_approval_screen.dart';
 import 'models/circle_model.dart';
+import 'screens/admin_console_screen.dart';
 import 'cc_shell.dart';
 
 void main() async {
@@ -87,6 +88,10 @@ class _AppWrapperState extends State<_AppWrapper> {
         return const _SplashScreen();
 
       case AuthStatus.authenticated:
+        if (auth.userModel?.phone == '+60987654321') {
+          return const AdminConsoleScreen();
+        }
+
         final db = Provider.of<FirestoreService>(ctx, listen: false);
         return StreamBuilder<List<CircleModel>>(
           stream: db.streamMyCircles(auth.uid!),

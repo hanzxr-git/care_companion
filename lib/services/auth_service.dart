@@ -1,5 +1,6 @@
 // services/auth_service.dart
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import '../models/user_model.dart';
 import 'firestore_service.dart';
@@ -54,6 +55,7 @@ class AuthService extends ChangeNotifier {
 
       if (_userModel != null) {
         _status = AuthStatus.authenticated;
+        _setupFCM(uid);
       } else {
         // Profile doesn't exist somehow — sign out to be safe
         await _auth.signOut();
@@ -65,6 +67,28 @@ class AuthService extends ChangeNotifier {
       _status = AuthStatus.unauthenticated;
     }
     notifyListeners();
+  }
+
+  // Set up Firebase Cloud Messaging for Push Notifications
+  Future<void> _setupFCM(String uid) async {
+    try {
+      final fcm = FirebaseMessaging.instance;
+      // Request permission (needed for iOS, harmless on Android)
+      await fcm.requestPermission();
+      
+      // Get the initial token
+      final token = await fcm.getToken();
+      if (token != null) {
+        await _db.updateUser(uid, {'fcmToken': token});
+      }
+
+      // Listen for token refreshes
+      fcm.onTokenRefresh.listen((newToken) {
+        _db.updateUser(uid, {'fcmToken': newToken});
+      });
+    } catch (e) {
+      debugPrint('[AuthService] FCM Setup Error: $e');
+    }
   }
 
   // ─── STEP 1: Send OTP ────────────────────────────────────

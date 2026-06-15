@@ -1020,17 +1020,7 @@ class _HomeTabState extends State<HomeTab> {
                                                              border: Border.all(color: C.primary, width: 2),
                                                            ),
                                                            padding: const EdgeInsets.all(2),
-                                                           child: CircleAvatar(
-                                                             radius: 24,
-                                                             backgroundColor: Color(member.avatarColorValue),
-                                                             child: Text(
-                                                               member.avatarInitials,
-                                                               style: const TextStyle(
-                                                                 color: Colors.white,
-                                                                 fontWeight: FontWeight.w900,
-                                                               ),
-                                                             ),
-                                                           ),
+                                                           child: member.buildAvatar(radius: 24),
                                                          ),
                                                          if (member.sosActive)
                                                            Positioned(

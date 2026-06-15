@@ -6,6 +6,7 @@ import '../models/circle_model.dart';
 import '../models/checkin_model.dart';
 import '../models/medicine_model.dart';
 import '../models/location_model.dart';
+import '../models/audit_log_model.dart';
 
 class FirestoreService {
   final _db = FirebaseFirestore.instance;
@@ -17,6 +18,7 @@ class FirestoreService {
   CollectionReference get _medicines => _db.collection('medicines');
   CollectionReference get _medLogs   => _db.collection('med_logs');
   CollectionReference get _locations => _db.collection('locations');
+  CollectionReference get _logs      => _db.collection('logs');
 
   // ─── USER ────────────────────────────────────────────────
 
@@ -51,6 +53,20 @@ class FirestoreService {
   /// Update FCM token when it refreshes
   Future<void> updateFcmToken(String uid, String token) async {
     await _users.doc(uid).update({'fcmToken': token});
+  }
+
+  /// Update account status (Admin only)
+  Future<void> updateUserStatus(String uid, String status) async {
+    await _users.doc(uid).update({'accountStatus': status});
+    await logSystemEvent('User Status Changed', 'User $uid status set to $status');
+  }
+
+  /// Delete user profile (Admin only)
+  Future<void> deleteUserProfile(String uid) async {
+    final doc = await _users.doc(uid).get();
+    final name = doc.exists ? (doc.data() as Map<String, dynamic>)['displayName'] ?? uid : uid;
+    await _users.doc(uid).delete();
+    await logSystemEvent('User Deleted', 'Admin deleted user profile for $name');
   }
 
   // ─── CIRCLE ──────────────────────────────────────────────
@@ -221,6 +237,18 @@ class FirestoreService {
       .map((q) => q.docs.map(UserModel.fromDoc).toList());
   }
 
+  /// Get all users in the system (Admin only)
+  Stream<List<UserModel>> streamAllUsers() =>
+    _users
+      .snapshots()
+      .map((q) => q.docs.map(UserModel.fromDoc).toList());
+
+  /// Get all circles in the system (Admin only)
+  Stream<List<CircleModel>> streamAllCircles() =>
+    _circles
+      .snapshots()
+      .map((q) => q.docs.map(CircleModel.fromDoc).toList());
+
   // ─── CHECK-IN ────────────────────────────────────────────
 
   /// Submit today's check-in
@@ -238,6 +266,13 @@ class FirestoreService {
       if (mood != null) updates['mood'] = mood;
       if (note != null) updates['note'] = note;
       await _checkins.doc(todayCheckin.checkinId).update(updates);
+      
+      if (mood == 'SOS') {
+        final udoc = await _users.doc(uid).get();
+        final name = udoc.exists ? (udoc.data() as Map)['displayName'] : 'User';
+        await logSystemEvent('Alert Triggered', 'SOS triggered by $name.');
+      }
+      
       return CheckinModel(
         checkinId: todayCheckin.checkinId,
         uid: uid,
@@ -480,5 +515,25 @@ class FirestoreService {
   Future<void> setLocationSharing(String uid, bool sharing) async {
     await _locations.doc(uid).update({'sharing': sharing});
     await _users.doc(uid).update({'locationSharing': sharing});
+  }
+
+  // ─── SYSTEM LOGS (Admin) ─────────────────────────────────
+
+  Future<void> logSystemEvent(String action, String details) async {
+    final log = AuditLogModel(
+      logId: '',
+      action: action,
+      details: details,
+      timestamp: DateTime.now(),
+    );
+    await _logs.add(log.toMap());
+  }
+
+  Stream<List<AuditLogModel>> streamSystemLogs() {
+    return _logs
+        .orderBy('timestamp', descending: true)
+        .limit(50)
+        .snapshots()
+        .map((q) => q.docs.map(AuditLogModel.fromDoc).toList());
   }
 }

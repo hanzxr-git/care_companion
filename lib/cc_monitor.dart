@@ -378,18 +378,7 @@ class MonitorTab extends StatelessWidget {
                                   ),
                                   child: Row(
                                     children: [
-                                      CircleAvatar(
-                                        radius: 20,
-                                        backgroundColor: Color(u.avatarColorValue).withValues(alpha: 0.15),
-                                        child: Text(
-                                          u.avatarInitials,
-                                          style: TextStyle(
-                                            color: Color(u.avatarColorValue),
-                                            fontWeight: FontWeight.w900,
-                                            fontSize: 13,
-                                          ),
-                                        ),
-                                      ),
+                                      u.buildAvatar(radius: 20),
                                       const SizedBox(width: 12),
                                       Expanded(
                                         child: Column(
@@ -655,14 +644,7 @@ class _MemberCard extends StatelessWidget {
                                           shape: BoxShape.circle,
                                           border: Border.all(color: color.withValues(alpha: 0.4), width: 2),
                                         ),
-                                        child: CircleAvatar(
-                                          radius: elder ? 28 : 24,
-                                          backgroundColor: color.withValues(alpha: 0.1),
-                                          child: Text(
-                                            member.avatarInitials,
-                                            style: TextStyle(color: color, fontWeight: FontWeight.w900, fontSize: context.fs(elder ? 16 : 14)),
-                                          ),
-                                        ),
+                                        child: member.buildAvatar(radius: elder ? 28 : 24),
                                       ),
                                       Positioned(
                                         right: 2,

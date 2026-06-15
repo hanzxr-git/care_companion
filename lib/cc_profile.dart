@@ -1,10 +1,9 @@
 // cc_profile.dart — with gallery image picker, Elderly Mode, and synced location sharing
-import 'dart:convert';
-import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 
 import 'cc_theme.dart';
 import 'services/auth_service.dart';
@@ -53,10 +52,17 @@ class _ProfileTabState extends State<ProfileTab> with SingleTickerProviderStateM
 
     try {
       final bytes = await picked.readAsBytes();
-      final base64Str = base64Encode(bytes);
       if (!mounted) return;
       final auth = context.read<AuthService>();
-      await auth.updateAvatar(base64Str);
+      final uid = auth.uid;
+      if (uid == null) return;
+      
+      final ref = FirebaseStorage.instance.ref('avatars/$uid.jpg');
+      await ref.putData(bytes, SettableMetadata(contentType: 'image/jpeg'));
+      final downloadUrl = await ref.getDownloadURL();
+      
+      if (!mounted) return;
+      await auth.updateAvatar(downloadUrl);
       if (mounted) C.showSuccess(context, 'Photo Updated', 'Profile photo changed successfully!');
     } catch (e) {
       if (mounted) {
@@ -109,18 +115,10 @@ class _ProfileTabState extends State<ProfileTab> with SingleTickerProviderStateM
         body: Center(child: CircularProgressIndicator(color: C.primary)),
       );
     }
-
-    final initials = user.avatarInitials;
     final color = Color(user.avatarColorValue);
     final avatarRadius = e ? 50.0 : 42.0;
 
-    // Decode stored Base64 image if any
-    Uint8List? avatarBytes;
-    if (user.avatarUrl != null && user.avatarUrl!.isNotEmpty) {
-      try {
-        avatarBytes = base64Decode(user.avatarUrl!);
-      } catch (_) {}
-    }
+    // Avatar handling is now fully encapsulated inside user.buildAvatar()
 
     return Scaffold(
       backgroundColor: C.bg,
@@ -167,23 +165,7 @@ class _ProfileTabState extends State<ProfileTab> with SingleTickerProviderStateM
                       // Avatar circle
                       GestureDetector(
                         onTap: _isUploadingAvatar ? null : _pickAvatar,
-                        child: CircleAvatar(
-                          radius: avatarRadius,
-                          backgroundColor: color,
-                          backgroundImage: avatarBytes != null
-                              ? MemoryImage(avatarBytes)
-                              : null,
-                          child: avatarBytes == null
-                              ? Text(
-                                  initials,
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w900,
-                                    fontSize: context.fs(e ? 28 : 24),
-                                  ),
-                                )
-                              : null,
-                        ),
+                        child: user.buildAvatar(radius: avatarRadius),
                       ),
                       // Edit badge
                       Positioned(

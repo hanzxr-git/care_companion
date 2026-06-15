@@ -1,4 +1,6 @@
 // models/user_model.dart
+import 'dart:convert';
+import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class UserModel {
@@ -13,6 +15,7 @@ class UserModel {
   final bool locationSharing;
   final bool sosActive;
   final String? fcmToken;
+  final String accountStatus;
   final DateTime createdAt;
 
   const UserModel({
@@ -27,6 +30,7 @@ class UserModel {
     this.locationSharing = true,
     this.sosActive = false,
     this.fcmToken,
+    this.accountStatus = 'ACTIVE',
     required this.createdAt,
   });
 
@@ -70,6 +74,7 @@ class UserModel {
       locationSharing: d['locationSharing'] ?? true,
       sosActive: d['sosActive'] ?? false,
       fcmToken: d['fcmToken'],
+      accountStatus: d['accountStatus'] ?? 'ACTIVE',
       createdAt: (d['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
     );
   }
@@ -86,6 +91,7 @@ class UserModel {
     'locationSharing': locationSharing,
     'sosActive': sosActive,
     if (fcmToken != null) 'fcmToken': fcmToken,
+    'accountStatus': accountStatus,
     'createdAt': Timestamp.fromDate(createdAt),
   };
 
@@ -97,6 +103,7 @@ class UserModel {
     bool? locationSharing,
     bool? sosActive,
     String? fcmToken,
+    String? accountStatus,
   }) => UserModel(
     uid: uid,
     phone: phone,
@@ -110,6 +117,48 @@ class UserModel {
     locationSharing: locationSharing ?? this.locationSharing,
     sosActive: sosActive ?? this.sosActive,
     fcmToken: fcmToken ?? this.fcmToken,
+    accountStatus: accountStatus ?? this.accountStatus,
     createdAt: createdAt,
   );
+
+  /// Helper to build the user's avatar widget uniformly across the app.
+  /// Handles Firebase Storage URLs, Base64 strings, and fallback initials.
+  Widget buildAvatar({double radius = 24}) {
+    ImageProvider? imageProvider;
+    
+    if (avatarUrl != null && avatarUrl!.isNotEmpty) {
+      if (avatarUrl!.startsWith('http')) {
+        imageProvider = NetworkImage(avatarUrl!);
+      } else {
+        try {
+          final bytes = base64Decode(avatarUrl!);
+          imageProvider = MemoryImage(bytes);
+        } catch (e) {
+          // invalid base64, fallback
+        }
+      }
+    }
+
+    if (imageProvider != null) {
+      return CircleAvatar(
+        radius: radius,
+        backgroundColor: Color(avatarColorValue),
+        backgroundImage: imageProvider,
+      );
+    }
+
+    // Fallback initials
+    return CircleAvatar(
+      radius: radius,
+      backgroundColor: Color(avatarColorValue),
+      child: Text(
+        avatarInitials,
+        style: TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.bold,
+          fontSize: radius * 0.8,
+        ),
+      ),
+    );
+  }
 }
