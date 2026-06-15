@@ -63,12 +63,12 @@ class FirestoreService {
     return 'CC-$code';
   }
 
-  /// Create a new circle (owner becomes first member as monitor)
+  /// Create a new circle (owner becomes first member as member)
   Future<CircleModel> createCircle(String ownerUid, String name) async {
     final code = _generateInviteCode();
     final member = CircleMember(
       uid: ownerUid,
-      role: 'monitor',
+      role: 'member',
       joinedAt: DateTime.now(),
     );
     final ref = _circles.doc();
@@ -77,6 +77,8 @@ class FirestoreService {
       name: name,
       ownerId: ownerUid,
       members: [member],
+      pendingRequests: const [],
+      pendingRequestUids: const [],
       inviteCode: code,
       createdAt: DateTime.now(),
     );
@@ -99,19 +101,93 @@ class FirestoreService {
     // Check if already a member
     if (circle.memberUids.contains(uid)) return circle;
 
-    final newMember = CircleMember(
+    const requestedRole = 'member';
+
+    // If already has a pending request
+    if (circle.pendingRequestUids.contains(uid)) return circle;
+
+    final newRequest = CircleRequest(
       uid: uid,
-      role: 'member',
-      joinedAt: DateTime.now(),
+      role: requestedRole,
+      requestedAt: DateTime.now(),
     );
 
     await doc.reference.update({
-      'members': FieldValue.arrayUnion([newMember.toMap()]),
-      'memberUids': FieldValue.arrayUnion([uid]),
+      'pendingRequests': FieldValue.arrayUnion([newRequest.toMap()]),
+      'pendingRequestUids': FieldValue.arrayUnion([uid]),
     });
 
     return CircleModel.fromDoc(await doc.reference.get());
   }
+
+  /// Get all pending circles where user is requesting to join
+  Stream<List<CircleModel>> streamMyPendingCircles(String uid) =>
+    _circles
+      .where('pendingRequestUids', arrayContains: uid)
+      .snapshots()
+      .map((q) => q.docs.map(CircleModel.fromDoc).toList());
+
+  /// Accept a join request
+  Future<void> acceptJoinRequest(String circleId, String uid, String role) async {
+    final docRef = _circles.doc(circleId);
+    final doc = await docRef.get();
+    if (!doc.exists) return;
+
+    final circle = CircleModel.fromDoc(doc);
+    final updatedRequests = circle.pendingRequests.where((r) => r.uid != uid).map((r) => r.toMap()).toList();
+    final updatedRequestUids = circle.pendingRequestUids.where((id) => id != uid).toList();
+
+    final newMember = CircleMember(
+      uid: uid,
+      role: role,
+      joinedAt: DateTime.now(),
+    );
+
+    await docRef.update({
+      'pendingRequests': updatedRequests,
+      'pendingRequestUids': updatedRequestUids,
+      'members': FieldValue.arrayUnion([newMember.toMap()]),
+      'memberUids': FieldValue.arrayUnion([uid]),
+    });
+  }
+
+  /// Decline a join request
+  Future<void> declineJoinRequest(String circleId, String uid) async {
+    final docRef = _circles.doc(circleId);
+    final doc = await docRef.get();
+    if (!doc.exists) return;
+
+    final circle = CircleModel.fromDoc(doc);
+    final updatedRequests = circle.pendingRequests.where((r) => r.uid != uid).map((r) => r.toMap()).toList();
+    final updatedRequestUids = circle.pendingRequestUids.where((id) => id != uid).toList();
+
+    await docRef.update({
+      'pendingRequests': updatedRequests,
+      'pendingRequestUids': updatedRequestUids,
+    });
+  }
+
+  /// Leave a circle
+  Future<void> leaveCircle(String circleId, String uid) async {
+    final docRef = _circles.doc(circleId);
+    final doc = await docRef.get();
+    if (!doc.exists) return;
+
+    final circle = CircleModel.fromDoc(doc);
+    final updatedMembers = circle.members.where((m) => m.uid != uid).map((m) => m.toMap()).toList();
+    final updatedMemberUids = circle.memberUids.where((id) => id != uid).toList();
+
+    await docRef.update({
+      'members': updatedMembers,
+      'memberUids': updatedMemberUids,
+    });
+  }
+
+  /// Rename a circle
+  Future<void> renameCircle(String circleId, String newName) async {
+    await _circles.doc(circleId).update({'name': newName});
+  }
+
 
   /// Get all circles where user is a member
   Stream<List<CircleModel>> streamMyCircles(String uid) =>
@@ -157,10 +233,10 @@ class FirestoreService {
     final todayCheckin = await getTodayCheckin(uid, circleId);
     if (todayCheckin != null) {
       final updates = <String, dynamic>{
-        if (mood != null) 'mood': mood,
-        if (note != null) 'note': note,
         'timestamp': Timestamp.fromDate(DateTime.now()),
       };
+      if (mood != null) updates['mood'] = mood;
+      if (note != null) updates['note'] = note;
       await _checkins.doc(todayCheckin.checkinId).update(updates);
       return CheckinModel(
         checkinId: todayCheckin.checkinId,
@@ -259,6 +335,9 @@ class FirestoreService {
     required String dosage,
     required List<String> times,
     List<int>? daysOfWeek,
+    String? ringtone,
+    bool? vibrate,
+    bool? deleteAfterTaken,
   }) async {
     final ref = _medicines.doc();
     final med = MedicineModel(
@@ -270,9 +349,34 @@ class FirestoreService {
       times: times,
       daysOfWeek: daysOfWeek ?? [1,2,3,4,5,6,7],
       createdAt: DateTime.now(),
+      ringtone: ringtone ?? 'Medication',
+      vibrate: vibrate ?? true,
+      deleteAfterTaken: deleteAfterTaken ?? false,
     );
     await ref.set(med.toMap());
     return med;
+  }
+
+  /// Update an existing medicine schedule
+  Future<void> updateMedicine({
+    required String medId,
+    required String name,
+    required String dosage,
+    required List<String> times,
+    required List<int> daysOfWeek,
+    required String ringtone,
+    required bool vibrate,
+    required bool deleteAfterTaken,
+  }) async {
+    await _medicines.doc(medId).update({
+      'name': name,
+      'dosage': dosage,
+      'times': times,
+      'daysOfWeek': daysOfWeek,
+      'ringtone': ringtone,
+      'vibrate': vibrate,
+      'deleteAfterTaken': deleteAfterTaken,
+    });
   }
 
   /// Stream medicines for a user
@@ -311,6 +415,28 @@ class FirestoreService {
     return log;
   }
 
+  /// Unlog medicine as taken (delete today's log entry)
+  Future<void> unlogMedicineTaken({
+    required String medId,
+    required String uid,
+    required String scheduledTime,
+  }) async {
+    final today = DateTime.now();
+    final startOfDay = DateTime(today.year, today.month, today.day);
+    final query = await _medLogs
+        .where('uid', isEqualTo: uid)
+        .where('medId', isEqualTo: medId)
+        .where('scheduledTime', isEqualTo: scheduledTime)
+        .get();
+
+    for (final doc in query.docs) {
+      final log = MedLogModel.fromDoc(doc);
+      if (log.takenAt.isAfter(startOfDay)) {
+        await doc.reference.delete();
+      }
+    }
+  }
+
   /// Get today's med logs for a user
   Stream<List<MedLogModel>> streamTodayMedLogs(String uid) {
     final today = DateTime.now();
@@ -342,6 +468,7 @@ class FirestoreService {
       'updatedAt': Timestamp.fromDate(DateTime.now()),
       'sharing': sharing,
     }, SetOptions(merge: true));
+    await _users.doc(uid).update({'locationSharing': sharing});
   }
 
   /// Stream a user's location
@@ -352,5 +479,6 @@ class FirestoreService {
   /// Toggle location sharing
   Future<void> setLocationSharing(String uid, bool sharing) async {
     await _locations.doc(uid).update({'sharing': sharing});
+    await _users.doc(uid).update({'locationSharing': sharing});
   }
 }

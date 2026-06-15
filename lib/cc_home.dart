@@ -34,6 +34,28 @@ class _HomeTabState extends State<HomeTab> {
 
   bool _isUpdatingLocation = false;
 
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final auth = context.read<AuthService>();
+      if (auth.uid != null) {
+        _refreshLocationSilent(auth.uid!);
+      }
+    });
+  }
+
+  void _refreshLocationSilent(String uid) async {
+    try {
+      final locService = context.read<LocationService>();
+      final doc = await FirebaseFirestore.instance.collection('locations').doc(uid).get();
+      final sharing = doc.data()?['sharing'] ?? true;
+      await locService.updateCurrentLocation(uid, sharing: sharing);
+    } catch (e) {
+      debugPrint('[HomeTab] Silent location update failed: $e');
+    }
+  }
+
   void _refreshLocation(String targetUid, bool currentSharing) async {
     if (_isUpdatingLocation) return;
     setState(() => _isUpdatingLocation = true);
@@ -249,16 +271,7 @@ class _HomeTabState extends State<HomeTab> {
       return const Center(child: CircularProgressIndicator());
     }
 
-    final isElder = user.elderMode;
-    // Target user: if elder, show self. If caregiver, find first member role in circle.
-    final targetMember = widget.circle.members.firstWhere(
-      (m) => m.role == 'member',
-      orElse: () => widget.circle.members.firstWhere(
-        (m) => m.uid != auth.uid!,
-        orElse: () => widget.circle.members.first,
-      ),
-    );
-    final targetUid = isElder ? auth.uid! : targetMember.uid;
+    final targetUid = auth.uid!;
 
     final h = DateTime.now().hour;
     final greet = h < 12 ? 'GOOD MORNING' : h < 17 ? 'GOOD AFTERNOON' : 'GOOD EVENING';
@@ -547,8 +560,134 @@ class _HomeTabState extends State<HomeTab> {
                                     final location = locSnap.data;
                                     final sharing = location?.sharing ?? false;
                                     final hasLocation = location != null;
+
                                     final label = hasLocation ? location.label : 'Tap refresh to get location';
                                     final agoText = hasLocation ? 'UPDATED ${location.agoText.toUpperCase()}' : 'NO LOCATION DATA';
+                                    final showMap = hasLocation;
+
+                                    Widget buildMapPlaceholder() {
+                                      if (showMap) {
+                                        return Stack(
+                                          children: [
+                                            // 3-tile wide OSM map strip
+                                            Row(
+                                              children: [-1, 0, 1].map((dx) {
+                                                return Expanded(
+                                                  child: Image.network(
+                                                    LocationService.getMapTileUrl(location.lat, location.lng, dx: dx),
+                                                    headers: const {'User-Agent': 'CareCompanion/2.0'},
+                                                    fit: BoxFit.cover,
+                                                    height: 160,
+                                                    errorBuilder: (_, _, _) => Container(color: C.primarySoft),
+                                                  ),
+                                                );
+                                              }).toList(),
+                                            ),
+                                            // Location pin marker
+                                            Center(
+                                              child: Column(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  Container(
+                                                    padding: const EdgeInsets.all(6),
+                                                    decoration: BoxDecoration(
+                                                      color: C.primary,
+                                                      shape: BoxShape.circle,
+                                                      boxShadow: [
+                                                        BoxShadow(
+                                                          color: C.primary.withValues(alpha: 0.4),
+                                                          blurRadius: 12,
+                                                          spreadRadius: 2,
+                                                        ),
+                                                      ],
+                                                    ),
+                                                    child: const Icon(Icons.person, color: Colors.white, size: 18),
+                                                  ),
+                                                  Container(
+                                                    width: 2,
+                                                    height: 8,
+                                                    decoration: BoxDecoration(
+                                                      color: C.primary,
+                                                      borderRadius: BorderRadius.circular(1),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                            // OSM attribution
+                                            Positioned(
+                                              bottom: 4,
+                                              right: 6,
+                                              child: Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                                decoration: BoxDecoration(
+                                                  color: Colors.white.withValues(alpha: 0.7),
+                                                  borderRadius: BorderRadius.circular(4),
+                                                ),
+                                                child: const Text(
+                                                  '© OpenStreetMap',
+                                                  style: TextStyle(fontSize: 8, color: C.textMid),
+                                                ),
+                                              ),
+                                            ),
+                                            // Loading overlay
+                                            if (_isUpdatingLocation)
+                                              Container(
+                                                color: Colors.white.withValues(alpha: 0.6),
+                                                child: const Center(
+                                                  child: SizedBox(
+                                                    width: 28,
+                                                    height: 28,
+                                                    child: CircularProgressIndicator(color: C.primary, strokeWidth: 2.5),
+                                                  ),
+                                                ),
+                                              ),
+                                          ],
+                                        );
+                                      }
+
+                                      // Grid locator placeholder when no location yet
+                                      return Container(
+                                        decoration: BoxDecoration(
+                                          gradient: LinearGradient(
+                                            begin: Alignment.topLeft,
+                                            end: Alignment.bottomRight,
+                                            colors: [
+                                              C.primarySoft,
+                                              C.primary.withValues(alpha: 0.15),
+                                              C.greenSoft,
+                                            ],
+                                          ),
+                                        ),
+                                        child: Stack(
+                                          alignment: Alignment.center,
+                                          children: [
+                                            ...List.generate(5, (i) => Positioned(
+                                              left: 0, right: 0,
+                                              top: (i + 1) * 32.0,
+                                              child: Container(height: 0.5, color: C.primary.withValues(alpha: 0.08)),
+                                            )),
+                                            ...List.generate(4, (i) => Positioned(
+                                              top: 0, bottom: 0,
+                                              left: (i + 1) * 80.0,
+                                              child: Container(width: 0.5, color: C.primary.withValues(alpha: 0.08)),
+                                            )),
+                                            Icon(Icons.location_searching, color: C.primary.withValues(alpha: 0.3), size: 48),
+                                            if (_isUpdatingLocation)
+                                              Container(
+                                                color: Colors.white.withValues(alpha: 0.6),
+                                                child: const Center(
+                                                  child: SizedBox(
+                                                    width: 28,
+                                                    height: 28,
+                                                    child: CircularProgressIndicator(color: C.primary, strokeWidth: 2.5),
+                                                  ),
+                                                ),
+                                              ),
+                                          ],
+                                        ),
+                                      );
+                                    }
 
                                     return Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -629,123 +768,7 @@ class _HomeTabState extends State<HomeTab> {
                                                 child: SizedBox(
                                                   height: 160,
                                                   width: double.infinity,
-                                                  child: hasLocation
-                                                      ? Stack(
-                                                          children: [
-                                                            // 3-tile wide OSM map strip
-                                                            Row(
-                                                              children: [-1, 0, 1].map((dx) {
-                                                                return Expanded(
-                                                                  child: Image.network(
-                                                                    LocationService.getMapTileUrl(location.lat, location.lng, dx: dx),
-                                                                    fit: BoxFit.cover,
-                                                                    height: 160,
-                                                                    errorBuilder: (_, __, ___) => Container(color: C.primarySoft),
-                                                                  ),
-                                                                );
-                                                              }).toList(),
-                                                            ),
-                                                            // Location pin marker
-                                                            Center(
-                                                              child: Column(
-                                                                mainAxisSize: MainAxisSize.min,
-                                                                children: [
-                                                                  Container(
-                                                                    padding: const EdgeInsets.all(6),
-                                                                    decoration: BoxDecoration(
-                                                                      color: C.primary,
-                                                                      shape: BoxShape.circle,
-                                                                      boxShadow: [
-                                                                        BoxShadow(
-                                                                          color: C.primary.withValues(alpha: 0.4),
-                                                                          blurRadius: 12,
-                                                                          spreadRadius: 2,
-                                                                        ),
-                                                                      ],
-                                                                    ),
-                                                                    child: const Icon(Icons.person, color: Colors.white, size: 18),
-                                                                  ),
-                                                                  Container(
-                                                                    width: 2,
-                                                                    height: 8,
-                                                                    decoration: BoxDecoration(
-                                                                      color: C.primary,
-                                                                      borderRadius: BorderRadius.circular(1),
-                                                                    ),
-                                                                  ),
-                                                                ],
-                                                              ),
-                                                            ),
-                                                            // OSM attribution
-                                                            Positioned(
-                                                              bottom: 4,
-                                                              right: 6,
-                                                              child: Container(
-                                                                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                                                decoration: BoxDecoration(
-                                                                  color: Colors.white.withValues(alpha: 0.7),
-                                                                  borderRadius: BorderRadius.circular(4),
-                                                                ),
-                                                                child: const Text(
-                                                                  '© OpenStreetMap',
-                                                                  style: TextStyle(fontSize: 8, color: C.textMid),
-                                                                ),
-                                                              ),
-                                                            ),
-                                                            // Loading overlay
-                                                            if (_isUpdatingLocation)
-                                                              Container(
-                                                                color: Colors.white.withValues(alpha: 0.6),
-                                                                child: const Center(
-                                                                  child: SizedBox(
-                                                                    width: 28,
-                                                                    height: 28,
-                                                                    child: CircularProgressIndicator(color: C.primary, strokeWidth: 2.5),
-                                                                  ),
-                                                                ),
-                                                              ),
-                                                          ],
-                                                        )
-                                                      : Container(
-                                                          decoration: BoxDecoration(
-                                                            gradient: LinearGradient(
-                                                              begin: Alignment.topLeft,
-                                                              end: Alignment.bottomRight,
-                                                              colors: [
-                                                                C.primarySoft,
-                                                                C.primary.withValues(alpha: 0.15),
-                                                                C.greenSoft,
-                                                              ],
-                                                            ),
-                                                          ),
-                                                          child: Stack(
-                                                            alignment: Alignment.center,
-                                                            children: [
-                                                              ...List.generate(5, (i) => Positioned(
-                                                                left: 0, right: 0,
-                                                                top: (i + 1) * 32.0,
-                                                                child: Container(height: 0.5, color: C.primary.withValues(alpha: 0.08)),
-                                                              )),
-                                                              ...List.generate(4, (i) => Positioned(
-                                                                top: 0, bottom: 0,
-                                                                left: (i + 1) * 80.0,
-                                                                child: Container(width: 0.5, color: C.primary.withValues(alpha: 0.08)),
-                                                              )),
-                                                              Icon(Icons.location_searching, color: C.primary.withValues(alpha: 0.3), size: 48),
-                                                              if (_isUpdatingLocation)
-                                                                Container(
-                                                                  color: Colors.white.withValues(alpha: 0.6),
-                                                                  child: const Center(
-                                                                    child: SizedBox(
-                                                                      width: 28,
-                                                                      height: 28,
-                                                                      child: CircularProgressIndicator(color: C.primary, strokeWidth: 2.5),
-                                                                    ),
-                                                                  ),
-                                                                ),
-                                                            ],
-                                                          ),
-                                                        ),
+                                                  child: buildMapPlaceholder(),
                                                 ),
                                               ),
                                               const SizedBox(height: 14),
@@ -863,7 +886,7 @@ class _HomeTabState extends State<HomeTab> {
                                          onTap: () {
                                            widget.onNavigateToTab?.call(3);
                                            Future.delayed(const Duration(milliseconds: 500), () {
-                                             if (mounted) {
+                                             if (context.mounted) {
                                                showModalBottomSheet(
                                                  context: context,
                                                  isScrollControlled: true,
@@ -914,7 +937,7 @@ class _HomeTabState extends State<HomeTab> {
                                                  onTap: () {
                                                    widget.onNavigateToTab?.call(3);
                                                    Future.delayed(const Duration(milliseconds: 500), () {
-                                                     if (mounted) {
+                                                     if (context.mounted) {
                                                        showModalBottomSheet(
                                                          context: context,
                                                          isScrollControlled: true,
@@ -1283,7 +1306,7 @@ class _HomeTabState extends State<HomeTab> {
                                                     onTap: () {
                                                       widget.onNavigateToTab?.call(2);
                                                       Future.delayed(const Duration(milliseconds: 500), () {
-                                                        if (mounted) {
+                                                        if (context.mounted) {
                                                           _showAddMedicine(context, targetUid, auth.uid!);
                                                         }
                                                       });
@@ -1373,14 +1396,12 @@ class _HomeTabState extends State<HomeTab> {
                                                         ),
                                                       ),
                                                       PressableCard(
-                                                        onTap: isElder
-                                                            ? () => _toggleMedTaken(
-                                                                  item.med,
-                                                                  targetUid,
-                                                                  item.time,
-                                                                  item.taken,
-                                                                )
-                                                            : null,
+                                                        onTap: () => _toggleMedTaken(
+                                                              item.med,
+                                                              targetUid,
+                                                              item.time,
+                                                              item.taken,
+                                                            ),
                                                         scaleOnPress: 0.9,
                                                         padding: EdgeInsets.symmetric(
                                                           horizontal: e ? 22 : 18,
@@ -1485,7 +1506,7 @@ class _HomeTabState extends State<HomeTab> {
                       behavior: SnackBarBehavior.floating,
                     ));
                   }
-                } catch (e) {
+                } catch (_) {
                   // ignore
                 }
               },
@@ -1605,12 +1626,12 @@ class _AddMedicineSheetState extends State<_AddMedicineSheet> {
                     dosage: dosage,
                     times: [formattedTime],
                   );
-                  if (mounted) {
+                  if (context.mounted) {
                     Navigator.pop(context);
                     C.showSuccess(context, 'Medicine Added', '$name schedule created.');
                   }
-                } catch (e) {
-                  if (mounted) {
+                } catch (_) {
+                  if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
                       content: Text('Failed to add medicine. Please try again.'),
                       behavior: SnackBarBehavior.floating,

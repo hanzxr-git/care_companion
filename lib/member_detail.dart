@@ -8,6 +8,7 @@ import 'models/checkin_model.dart';
 import 'models/medicine_model.dart';
 import 'models/location_model.dart';
 import 'services/firestore_service.dart';
+import 'services/location_service.dart';
 
 class MemberDetailScreen extends StatefulWidget {
   final UserModel member;
@@ -101,54 +102,122 @@ class _LocTab extends StatelessWidget {
               pad: EdgeInsets.zero,
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(18),
-                child: Stack(
-                  children: [
-                    Container(
-                      height: e ? 230 : 200,
-                      color: C.primarySoft,
-                      child: Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.map_outlined, size: e ? 48 : 40, color: C.primary.withOpacity(0.25)),
-                            const SizedBox(height: 8),
-                            Text(
-                              isSharing ? 'MAP VIEW ACTIVE' : 'MAP SHARING DISABLED',
-                              style: TextStyle(fontSize: context.fs(C.fCap), color: C.textMid, fontWeight: FontWeight.w700, letterSpacing: 1),
+                child: SizedBox(
+                  height: e ? 230 : 200,
+                  child: Stack(
+                    children: [
+                      if (location != null && isSharing)
+                        Row(
+                          children: [-1, 0, 1].map((dx) {
+                            return Expanded(
+                              child: Image.network(
+                                LocationService.getMapTileUrl(location.lat, location.lng, dx: dx),
+                                headers: const {'User-Agent': 'CareCompanion/2.0'},
+                                fit: BoxFit.cover,
+                                height: e ? 230 : 200,
+                                errorBuilder: (_, _, _) => Container(color: C.primarySoft),
+                              ),
+                            );
+                          }).toList(),
+                        )
+                      else
+                        Container(
+                          color: C.primarySoft,
+                          child: Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  location != null && !isSharing ? Icons.location_off_rounded : Icons.location_searching_rounded,
+                                  size: e ? 48 : 40,
+                                  color: C.primary.withValues(alpha: 0.25),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  location != null && !isSharing ? 'LOCATION PRIVATE' : 'NO LOCATION DATA',
+                                  style: TextStyle(fontSize: context.fs(C.fCap), color: C.textMid, fontWeight: FontWeight.w700, letterSpacing: 1),
+                                ),
+                              ],
                             ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    if (isSharing)
-                      Positioned(
-                        top: 14,
-                        left: 14,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: C.surface,
-                            borderRadius: BorderRadius.circular(20),
-                            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 8)],
                           ),
-                          child: Row(
+                        ),
+                      if (location != null && isSharing)
+                        Center(
+                          child: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Container(
-                                width: 8,
-                                height: 8,
-                                decoration: const BoxDecoration(color: C.green, shape: BoxShape.circle),
+                                padding: const EdgeInsets.all(6),
+                                decoration: BoxDecoration(
+                                  color: C.primary,
+                                  shape: BoxShape.circle,
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: C.primary.withValues(alpha: 0.4),
+                                      blurRadius: 12,
+                                      spreadRadius: 2,
+                                    ),
+                                  ],
+                                ),
+                                child: const Icon(Icons.person, color: Colors.white, size: 18),
                               ),
-                              const SizedBox(width: 6),
-                              Text(
-                                'LIVE NOW',
-                                style: TextStyle(fontSize: context.fs(C.fCap), fontWeight: FontWeight.w800, color: C.green),
+                              Container(
+                                width: 2,
+                                height: 8,
+                                decoration: BoxDecoration(
+                                  color: C.primary,
+                                  borderRadius: BorderRadius.circular(1),
+                                ),
                               ),
                             ],
                           ),
                         ),
-                      ),
-                  ],
+                      if (location != null && isSharing)
+                        Positioned(
+                          bottom: 4,
+                          right: 6,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.7),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: const Text(
+                              '© OpenStreetMap',
+                              style: TextStyle(fontSize: 8, color: C.textMid),
+                            ),
+                          ),
+                        ),
+                      if (isSharing)
+                        Positioned(
+                          top: 14,
+                          left: 14,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: C.surface,
+                              borderRadius: BorderRadius.circular(20),
+                              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 8)],
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Container(
+                                  width: 8,
+                                  height: 8,
+                                  decoration: const BoxDecoration(color: C.green, shape: BoxShape.circle),
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  'LIVE NOW',
+                                  style: TextStyle(fontSize: context.fs(C.fCap), fontWeight: FontWeight.w800, color: C.green),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -454,39 +523,45 @@ class _EvTab extends StatelessWidget {
                 ),
               )
             else
-              ...checkins.map((c) => Container(
-                    margin: const EdgeInsets.only(bottom: 12),
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(color: C.surface, borderRadius: BorderRadius.circular(14)),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        Column(
+              ...checkins.map((c) {
+                final moods = [('😊', 'GREAT'), ('😐', 'OKAY'), ('😔', 'DOWN'), ('🤒', 'SICK')];
+                final moodEmoji = moods.firstWhere((m) => m.$2 == c.mood?.toUpperCase(), orElse: () => ('', '')).$1;
+                final moodText = c.mood != null ? '$moodEmoji ${c.mood!.toUpperCase()}' : 'Checked in safely';
+
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(color: C.surface, borderRadius: BorderRadius.circular(14)),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Column(
+                        children: [
+                          Text(mons[c.timestamp.month - 1], style: TextStyle(fontSize: context.fs(C.fCap), fontWeight: FontWeight.w800, color: C.primary, letterSpacing: 1)),
+                          Text('${c.timestamp.day}', style: TextStyle(fontSize: context.fs(C.fTitle), fontWeight: FontWeight.w900, color: C.textDark, height: 1.0)),
+                        ],
+                      ),
+                      const SizedBox(width: 18),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(mons[c.timestamp.month - 1], style: TextStyle(fontSize: context.fs(C.fCap), fontWeight: FontWeight.w800, color: C.primary, letterSpacing: 1)),
-                            Text('${c.timestamp.day}', style: TextStyle(fontSize: context.fs(C.fTitle), fontWeight: FontWeight.w900, color: C.textDark, height: 1.0)),
+                            Text(
+                              moodText,
+                              style: TextStyle(fontSize: context.fs(C.fBody), fontWeight: FontWeight.w800, color: C.textDark),
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              c.note ?? 'Shared wellness status with family.',
+                              style: TextStyle(fontSize: context.fs(C.fSub), color: C.textMid),
+                            ),
                           ],
                         ),
-                        const SizedBox(width: 18),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                c.mood != null ? 'Mood: ${c.mood!.toUpperCase()}' : 'Checked in safely',
-                                style: TextStyle(fontSize: context.fs(C.fBody), fontWeight: FontWeight.w800, color: C.textDark),
-                              ),
-                              const SizedBox(height: 3),
-                              Text(
-                                c.note ?? 'Shared wellness status with family.',
-                                style: TextStyle(fontSize: context.fs(C.fSub), color: C.textMid),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  )),
+                      ),
+                    ],
+                  ),
+                );
+              }),
           ],
         );
       },

@@ -8,6 +8,7 @@ class UserModel {
   final String? email;
   final String avatarInitials;
   final int avatarColorValue;
+  final String? avatarUrl;
   final bool elderMode;
   final bool locationSharing;
   final bool sosActive;
@@ -21,6 +22,7 @@ class UserModel {
     this.email,
     required this.avatarInitials,
     required this.avatarColorValue,
+    this.avatarUrl,
     this.elderMode = false,
     this.locationSharing = true,
     this.sosActive = false,
@@ -63,6 +65,7 @@ class UserModel {
       email: d['email'],
       avatarInitials: d['avatarInitials'] ?? '??',
       avatarColorValue: d['avatarColorValue'] ?? 0xFF7C6FCD,
+      avatarUrl: d['avatarUrl'],
       elderMode: d['elderMode'] ?? false,
       locationSharing: d['locationSharing'] ?? true,
       sosActive: d['sosActive'] ?? false,
@@ -78,6 +81,7 @@ class UserModel {
     if (email != null) 'email': email,
     'avatarInitials': avatarInitials,
     'avatarColorValue': avatarColorValue,
+    if (avatarUrl != null) 'avatarUrl': avatarUrl,
     'elderMode': elderMode,
     'locationSharing': locationSharing,
     'sosActive': sosActive,
@@ -88,6 +92,7 @@ class UserModel {
   UserModel copyWith({
     String? displayName,
     String? email,
+    String? avatarUrl,
     bool? elderMode,
     bool? locationSharing,
     bool? sosActive,
@@ -100,6 +105,7 @@ class UserModel {
     avatarInitials: displayName != null
       ? initialsFrom(displayName) : avatarInitials,
     avatarColorValue: avatarColorValue,
+    avatarUrl: avatarUrl ?? this.avatarUrl,
     elderMode: elderMode ?? this.elderMode,
     locationSharing: locationSharing ?? this.locationSharing,
     sosActive: sosActive ?? this.sosActive,

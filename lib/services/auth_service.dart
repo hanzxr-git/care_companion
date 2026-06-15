@@ -212,7 +212,15 @@ class AuthService extends ChangeNotifier {
   Future<void> setLocationSharing(bool value) async {
     if (uid == null) return;
     await _db.updateUser(uid!, {'locationSharing': value});
+    await _db.setLocationSharing(uid!, value);
     _userModel = _userModel?.copyWith(locationSharing: value);
+    notifyListeners();
+  }
+
+  Future<void> updateAvatar(String base64Image) async {
+    if (uid == null) return;
+    await _db.updateUser(uid!, {'avatarUrl': base64Image});
+    _userModel = _userModel?.copyWith(avatarUrl: base64Image);
     notifyListeners();
   }
 

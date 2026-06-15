@@ -1,0 +1,57 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ─── USERS ────────────────────────────────────────────
+    match /users/{userId} {
+      // Anyone authenticated can read user profiles (needed for circle member lookups)
+      allow read: if request.auth != null;
+      // Only the user themselves can write their own profile
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // ─── CIRCLES ──────────────────────────────────────────
+    match /circles/{circleId} {
+      // Any authenticated user can read circles (needed for invite code queries)
+      allow read: if request.auth != null;
+      // Any authenticated user can create a circle
+      allow create: if request.auth != null;
+      // Members and pending requesters can update (for joining, accepting, etc.)
+      allow update: if request.auth != null;
+      // Only the owner can delete a circle
+      allow delete: if request.auth != null
+                    && resource.data.ownerId == request.auth.uid;
+    }
+
+    // ─── CHECK-INS ────────────────────────────────────────
+    match /checkins/{checkinId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null;
+      allow update: if request.auth != null
+                    && resource.data.uid == request.auth.uid;
+    }
+
+    // ─── MEDICINES ────────────────────────────────────────
+    match /medicines/{medId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null;
+      allow update, delete: if request.auth != null;
+    }
+
+    // ─── MED LOGS ─────────────────────────────────────────
+    match /med_logs/{logId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null;
+      allow delete: if request.auth != null
+                    && resource.data.uid == request.auth.uid;
+    }
+
+    // ─── LOCATIONS ────────────────────────────────────────
+    match /locations/{userId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null
+                   && request.auth.uid == userId;
+    }
+  }
+}

@@ -103,10 +103,10 @@ class C {
           decoration: BoxDecoration(
             color: backgroundColor,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: color.withOpacity(0.2), width: 1),
+            border: Border.all(color: color.withValues(alpha: 0.2), width: 1),
             boxShadow: [
               BoxShadow(
-                color: textDark.withOpacity(0.08),
+                color: textDark.withValues(alpha: 0.08),
                 blurRadius: 16,
                 offset: const Offset(0, 4),
               ),
@@ -117,7 +117,7 @@ class C {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.15),
+                  color: color.withValues(alpha: 0.15),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(icon, color: color, size: 22),

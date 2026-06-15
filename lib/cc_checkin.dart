@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'cc_theme.dart';
 import 'models/circle_model.dart';
-import 'models/user_model.dart';
 import 'models/checkin_model.dart';
 import 'services/auth_service.dart';
 import 'services/firestore_service.dart';
@@ -67,10 +66,12 @@ class _S extends State<CheckinTab> with SingleTickerProviderStateMixin {
         );
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('Failed to check in. Please try again.'),
-        behavior: SnackBarBehavior.floating,
-      ));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Failed to check in. Please try again.'),
+          behavior: SnackBarBehavior.floating,
+        ));
+      }
     }
   }
 
@@ -171,27 +172,13 @@ class _S extends State<CheckinTab> with SingleTickerProviderStateMixin {
       return const Center(child: CircularProgressIndicator());
     }
 
-    final isElder = user.elderMode;
-    final targetMember = widget.circle.members.firstWhere(
-      (m) => m.role == 'member',
-      orElse: () => widget.circle.members.firstWhere(
-        (m) => m.uid != auth.uid!,
-        orElse: () => widget.circle.members.first,
-      ),
-    );
-    final targetUid = isElder ? auth.uid! : targetMember.uid;
+    final targetUid = auth.uid!;
 
     final db = context.read<FirestoreService>();
 
     return Scaffold(
       backgroundColor: C.bg,
-      body: StreamBuilder<UserModel?>(
-        stream: db.streamUser(targetUid),
-        builder: (context, userSnap) {
-          final targetUser = userSnap.data;
-          final targetName = targetUser?.displayName ?? 'Family Member';
-
-          return StreamBuilder<List<CheckinModel>>(
+      body: StreamBuilder<List<CheckinModel>>(
             stream: db.streamRecentCheckins(targetUid, widget.circle.circleId),
             builder: (context, checkinSnap) {
               final checkins = checkinSnap.data ?? [];
@@ -219,7 +206,7 @@ class _S extends State<CheckinTab> with SingleTickerProviderStateMixin {
                     Text('Daily Check-in', style: TextStyle(fontSize: context.fs(C.fTitle), fontWeight: FontWeight.w900, color: C.textDark)),
                     const SizedBox(height: 4),
                     Text(
-                      isElder ? 'Keep your family circle updated.' : 'Monitoring $targetName\'s safety.',
+                      'Keep your family circle updated.',
                       style: TextStyle(fontSize: context.fs(C.fSub), color: C.textMid),
                     ),
                     const SizedBox(height: 24),
@@ -462,11 +449,9 @@ class _S extends State<CheckinTab> with SingleTickerProviderStateMixin {
                       ),
                     ),
                   ],
-                ),
+                 ),
               );
             },
-          );
-        },
       ),
     );
   }

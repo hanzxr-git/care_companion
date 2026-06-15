@@ -12,7 +12,17 @@ import 'models/circle_model.dart';
 class Shell extends StatefulWidget {
   final CircleModel circle;
   final Function(bool) onToggleElder;
-  const Shell({super.key, required this.circle, required this.onToggleElder});
+  final List<CircleModel> allCircles;
+  final Function(String) onSwitchCircle;
+
+  const Shell({
+    super.key,
+    required this.circle,
+    required this.onToggleElder,
+    required this.allCircles,
+    required this.onSwitchCircle,
+  });
+
   @override
   State<Shell> createState() => _ShellState();
 }
@@ -49,9 +59,14 @@ class _ShellState extends State<Shell> {
       ),
       CheckinTab(circle: widget.circle),
       MedsTab(circle: widget.circle),
-      MonitorTab(circle: widget.circle),
+      MonitorTab(
+        circle: widget.circle,
+        allCircles: widget.allCircles,
+        onSwitchCircle: widget.onSwitchCircle,
+      ),
       ProfileTab(onToggleElder: widget.onToggleElder),
     ];
+
 
     return Scaffold(
       body: PageView(

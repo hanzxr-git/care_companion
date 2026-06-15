@@ -100,11 +100,40 @@ class LocationService {
       if (placemarks.isNotEmpty) {
         final p = placemarks.first;
         final parts = <String>[];
-        if (p.street != null && p.street!.isNotEmpty) parts.add(p.street!);
-        if (p.locality != null && p.locality!.isNotEmpty) parts.add(p.locality!);
-        if (p.administrativeArea != null && p.administrativeArea!.isNotEmpty && parts.length < 2) {
+
+        // 1. Street address
+        String? streetAddress;
+        if (p.street != null && p.street!.isNotEmpty) {
+          streetAddress = p.street;
+        } else if (p.thoroughfare != null && p.thoroughfare!.isNotEmpty) {
+          streetAddress = [p.subThoroughfare, p.thoroughfare].where((e) => e != null && e.isNotEmpty).join(' ');
+        } else if (p.name != null && p.name!.isNotEmpty) {
+          streetAddress = p.name;
+        }
+        if (streetAddress != null && streetAddress.isNotEmpty) {
+          parts.add(streetAddress);
+        }
+
+        // 2. Sub-locality / Neighborhood
+        if (p.subLocality != null && p.subLocality!.isNotEmpty && p.subLocality != p.street) {
+          parts.add(p.subLocality!);
+        }
+
+        // 3. Locality / Town / City
+        if (p.locality != null && p.locality!.isNotEmpty) {
+          parts.add(p.locality!);
+        }
+
+        // 4. Postal Code
+        if (p.postalCode != null && p.postalCode!.isNotEmpty) {
+          parts.add(p.postalCode!);
+        }
+
+        // 5. State / Administrative Area
+        if (p.administrativeArea != null && p.administrativeArea!.isNotEmpty) {
           parts.add(p.administrativeArea!);
         }
+
         if (parts.isNotEmpty) return parts.join(', ');
       }
     } catch (e) {

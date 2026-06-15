@@ -11,6 +11,9 @@ class MedicineModel {
   final List<int> daysOfWeek; // [1,2,3,4,5,6,7] — 1=Mon, 7=Sun
   final bool active;
   final DateTime createdAt;
+  final String ringtone;
+  final bool vibrate;
+  final bool deleteAfterTaken;
 
   const MedicineModel({
     required this.medId,
@@ -22,6 +25,9 @@ class MedicineModel {
     required this.daysOfWeek,
     this.active = true,
     required this.createdAt,
+    this.ringtone = 'Medication',
+    this.vibrate = true,
+    this.deleteAfterTaken = false,
   });
 
   factory MedicineModel.fromDoc(DocumentSnapshot doc) {
@@ -36,6 +42,9 @@ class MedicineModel {
       daysOfWeek: List<int>.from(d['daysOfWeek'] ?? [1,2,3,4,5,6,7]),
       active: d['active'] ?? true,
       createdAt: (d['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      ringtone: d['ringtone'] ?? 'Medication',
+      vibrate: d['vibrate'] ?? true,
+      deleteAfterTaken: d['deleteAfterTaken'] ?? d['deleteAfterAlarm'] ?? false,
     );
   }
 
@@ -48,6 +57,9 @@ class MedicineModel {
     'daysOfWeek': daysOfWeek,
     'active': active,
     'createdAt': Timestamp.fromDate(createdAt),
+    'ringtone': ringtone,
+    'vibrate': vibrate,
+    'deleteAfterTaken': deleteAfterTaken,
   };
 
   // Check if scheduled for today

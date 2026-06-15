@@ -42,10 +42,15 @@ class _S extends State<JoinCircleScreen> {
       return;
     }
 
+    var formattedCode = code;
+    if (!formattedCode.startsWith('CC-') && formattedCode.length == 6) {
+      formattedCode = 'CC-$formattedCode';
+    }
+
     setState(() { _loading = true; _error = null; });
 
     try {
-      final circle = await db.joinCircleByCode(auth.uid!, code);
+      final circle = await db.joinCircleByCode(auth.uid!, formattedCode);
       if (circle == null) {
         setState(() {
           _error = 'Invalid code. Check and try again.';
@@ -61,8 +66,9 @@ class _S extends State<JoinCircleScreen> {
         Navigator.of(context).popUntil((route) => route.isFirst);
       }
     } catch (e) {
+      debugPrint('ERROR JOINING CIRCLE: $e');
       setState(() {
-        _error = 'Something went wrong. Please try again.';
+        _error = 'Error: $e';
         _loading = false;
       });
     }
@@ -78,8 +84,8 @@ class _S extends State<JoinCircleScreen> {
           icon: const Icon(Icons.arrow_back_ios_rounded, color: C.textDark),
           onPressed: () => Navigator.pop(context))),
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             const SizedBox(height: 24),
             const Text('Join a circle', style: TextStyle(
