@@ -21,7 +21,7 @@ class _SetupCircleScreenState extends State<SetupCircleScreen> {
   void initState() {
     super.initState();
     final auth = context.read<AuthService>();
-    final userName = auth.userModel?.displayName ?? '';
+    final userName = auth.userModel?.username ?? '';
     _nameCtrl.text = userName.isNotEmpty ? "$userName's Family" : "My Family Circle";
   }
 
@@ -63,11 +63,20 @@ class _SetupCircleScreenState extends State<SetupCircleScreen> {
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthService>();
-    final name = auth.userModel?.displayName ?? 'User';
+    final name = auth.userModel?.username ?? 'User';
 
     return Scaffold(
-      backgroundColor: C.bg,
-      body: SafeArea(
+      body: Container(
+        width: double.infinity,
+        height: double.infinity,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [C.primary.withValues(alpha: 0.15), C.bg],
+          ),
+        ),
+        child: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
           child: Column(
@@ -170,7 +179,7 @@ class _SetupCircleScreenState extends State<SetupCircleScreen> {
                       MaterialPageRoute(builder: (_) => const JoinCircleScreen()),
                     );
                   },
-                  icon: const Icon(Icons.qr_code_scanner_rounded, size: 20),
+                  icon: const Icon(Icons.vpn_key_rounded, size: 20),
                   label: const Text('Enter Invite Code', style: TextStyle(fontSize: C.fBody, fontWeight: FontWeight.w800)),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: C.primary,
@@ -182,6 +191,7 @@ class _SetupCircleScreenState extends State<SetupCircleScreen> {
             ],
           ),
         ),
+      ),
       ),
     );
   }

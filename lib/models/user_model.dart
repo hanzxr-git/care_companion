@@ -6,7 +6,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 class UserModel {
   final String uid;
   final String phone;
-  final String displayName;
+  final String username;
   final String? email;
   final String avatarInitials;
   final int avatarColorValue;
@@ -17,11 +17,13 @@ class UserModel {
   final String? fcmToken;
   final String accountStatus;
   final DateTime createdAt;
+  final DateTime? birthDate;
+  final String? gender;
 
   const UserModel({
     required this.uid,
     required this.phone,
-    required this.displayName,
+    required this.username,
     this.email,
     required this.avatarInitials,
     required this.avatarColorValue,
@@ -32,6 +34,8 @@ class UserModel {
     this.fcmToken,
     this.accountStatus = 'ACTIVE',
     required this.createdAt,
+    this.birthDate,
+    this.gender,
   });
 
   // Generate initials from display name
@@ -65,7 +69,7 @@ class UserModel {
     return UserModel(
       uid: doc.id,
       phone: d['phone'] ?? '',
-      displayName: d['displayName'] ?? '',
+      username: d['username'] ?? d['Username'] ?? d['displayName'] ?? d['DisplayName'] ?? 'User',
       email: d['email'],
       avatarInitials: d['avatarInitials'] ?? '??',
       avatarColorValue: d['avatarColorValue'] ?? 0xFF7C6FCD,
@@ -76,13 +80,15 @@ class UserModel {
       fcmToken: d['fcmToken'],
       accountStatus: d['accountStatus'] ?? 'ACTIVE',
       createdAt: (d['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      birthDate: (d['birthDate'] as Timestamp?)?.toDate(),
+      gender: d['gender'],
     );
   }
 
   // To Firestore map
   Map<String, dynamic> toMap() => {
     'phone': phone,
-    'displayName': displayName,
+    'username': username,
     if (email != null) 'email': email,
     'avatarInitials': avatarInitials,
     'avatarColorValue': avatarColorValue,
@@ -93,10 +99,12 @@ class UserModel {
     if (fcmToken != null) 'fcmToken': fcmToken,
     'accountStatus': accountStatus,
     'createdAt': Timestamp.fromDate(createdAt),
+    if (birthDate != null) 'birthDate': Timestamp.fromDate(birthDate!),
+    if (gender != null) 'gender': gender,
   };
 
   UserModel copyWith({
-    String? displayName,
+    String? username,
     String? email,
     String? avatarUrl,
     bool? elderMode,
@@ -104,13 +112,15 @@ class UserModel {
     bool? sosActive,
     String? fcmToken,
     String? accountStatus,
+    DateTime? birthDate,
+    String? gender,
   }) => UserModel(
     uid: uid,
     phone: phone,
-    displayName: displayName ?? this.displayName,
+    username: username ?? this.username,
     email: email ?? this.email,
-    avatarInitials: displayName != null
-      ? initialsFrom(displayName) : avatarInitials,
+    avatarInitials: username != null
+      ? initialsFrom(username) : avatarInitials,
     avatarColorValue: avatarColorValue,
     avatarUrl: avatarUrl ?? this.avatarUrl,
     elderMode: elderMode ?? this.elderMode,
@@ -119,6 +129,8 @@ class UserModel {
     fcmToken: fcmToken ?? this.fcmToken,
     accountStatus: accountStatus ?? this.accountStatus,
     createdAt: createdAt,
+    birthDate: birthDate ?? this.birthDate,
+    gender: gender ?? this.gender,
   );
 
   /// Helper to build the user's avatar widget uniformly across the app.

@@ -65,7 +65,7 @@ class _CircleManagementScreenState extends State<CircleManagementScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Remove Member', style: TextStyle(fontWeight: FontWeight.w900)),
-        content: Text('Are you sure you want to remove ${m.displayName} from the circle?'),
+        content: Text('Are you sure you want to remove ${m.username} from the circle?'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
           TextButton(
@@ -82,7 +82,7 @@ class _CircleManagementScreenState extends State<CircleManagementScreen> {
       try {
         await db.leaveCircle(widget.circle.circleId, m.uid);
         if (mounted) {
-          C.showSuccess(context, 'Member Removed', '${m.displayName} has been removed.');
+          C.showSuccess(context, 'Member Removed', '${m.username} has been removed.');
         }
       } catch (e) {
         if (mounted) {
@@ -313,7 +313,7 @@ class _CircleManagementScreenState extends State<CircleManagementScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  m.displayName + (isMe ? ' (You)' : ''),
+                                  m.username + (isMe ? ' (You)' : ''),
                                   style: const TextStyle(fontSize: C.fBody, fontWeight: FontWeight.w800, color: C.textDark),
                                 ),
                                 const SizedBox(height: 2),

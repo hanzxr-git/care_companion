@@ -84,7 +84,7 @@ class AlarmService {
     if (!med.active) return;
 
     final androidDetails = AndroidNotificationDetails(
-      'medication_alarm_channel_v2', // channelId
+      med.vibrate ? 'medication_alarm_vibrate_v3' : 'medication_alarm_silent_v3', // channelId
       'Medication Alarms', // channelName
       channelDescription: 'Alarms for scheduled medications',
       importance: Importance.max,

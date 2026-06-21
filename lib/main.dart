@@ -70,7 +70,7 @@ class _AppWrapperState extends State<_AppWrapper> {
         return ElderScope(
           on: _elder,
           child: MaterialApp(
-            title: 'CareCompanion',
+            title: 'Carely',
             debugShowCheckedModeBanner: false,
             theme: C.theme,
             home: _buildHome(ctx, auth),
@@ -186,20 +186,18 @@ class _SplashScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
+    return Scaffold(
       backgroundColor: C.bg,
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            CircleAvatar(
-              radius: 36,
-              backgroundColor: C.primary,
-              child: Icon(Icons.favorite_rounded,
-                color: Colors.white, size: 32),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(20),
+              child: Image.asset('assets/logo.png', width: 72, height: 72),
             ),
-            SizedBox(height: 24),
-            Text('CareCompanion', style: TextStyle(
+            const SizedBox(height: 24),
+            Text('Carely', style: TextStyle(
               fontSize: C.fH2,
               fontWeight: FontWeight.w900,
               color: C.textDark)),

@@ -53,45 +53,10 @@ class _AdminConsoleScreenState extends State<AdminConsoleScreen> {
     super.dispose();
   }
 
-  void _seedDummyLogs() async {
-    final dummyLogs = [
-      {'action': 'User Registered', 'details': 'New user (John Doe) registered via phone auth.'},
-      {'action': 'Circle Created', 'details': 'User John Doe created a new circle: "Family".'},
-      {'action': 'Medication Added', 'details': 'Aspirin 500mg added to circle "Family".'},
-      {'action': 'Alert Triggered', 'details': 'SOS triggered by Jane Doe.'},
-      {'action': 'Location Shared', 'details': 'Jane Doe started sharing live location.'},
-      {'action': 'Check-in Completed', 'details': 'John Doe checked in safely for the day.'},
-      {'action': 'Settings Updated', 'details': 'Admin enabled Elderly Mode for Jane Doe.'},
-    ];
-
-    for (var i = 0; i < dummyLogs.length; i++) {
-      final log = dummyLogs[i];
-      // Stagger timestamps by 1 hour so they look realistic
-      final time = DateTime.now().subtract(Duration(hours: dummyLogs.length - i));
-      
-      final logModel = AuditLogModel(
-        logId: '',
-        action: log['action']!,
-        details: log['details']!,
-        timestamp: time,
-      );
-      
-      await FirebaseFirestore.instance.collection('logs').add(logModel.toMap());
-    }
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('Successfully seeded 7 dummy logs into the database!'),
-        backgroundColor: Colors.green,
-      ));
-    }
-  }
-
   void _generateAiReport(List<UserModel> users, List<CircleModel> circles, List<AuditLogModel> logs) async {
     final db = context.read<FirestoreService>();
     final firestore = FirebaseFirestore.instance;
-    final apiKey = 'AQ.Ab8RN6KLwTyFLTT5YxZJtSBjdd6eKQ-GRyP7LELTJJqUNZ6udw'; 
-
+    final apiKey = const String.fromEnvironment('GEMINI_API_KEY', defaultValue: ''); 
     setState(() => _isGeneratingAI = true);
     try {
       // 1. Fetch recent records from both 'logs' and 'med_logs' collections in parallel to optimize runtimes
@@ -144,7 +109,7 @@ class _AdminConsoleScreenState extends State<AdminConsoleScreen> {
       final activeAlerts = users.where((u) => u.sosActive).length;
       
       final systemContext = '''
-You are an AI assistant for the CareCompanion Admin Console. 
+You are an AI assistant for the Carely Admin Console. 
 Analyze the following multi-source real-time database state variables and logs timeline to generate a structured system summary report.
 ---
 TOTAL REGISTERED USERS: ${users.length}
@@ -158,10 +123,7 @@ ADMIN PROMPT: Please generate a comprehensive operational report. Highlight core
 ''';
 
       // 6. Use the production-ready flash model safe for clean unbilled free-trial accounts
-      final model = GenerativeModel(
-        model: 'gemini-2.5-flash', 
-        apiKey: apiKey,
-      );
+      final model = GenerativeModel(model: 'gemini-2.5-flash', apiKey: apiKey);
 
       final content = [Content.text(systemContext)];
       final response = await model.generateContent(content);
@@ -183,7 +145,7 @@ ADMIN PROMPT: Please generate a comprehensive operational report. Highlight core
   }
 
   void _showEditUserDialog(UserModel user) {
-    final nameCtrl = TextEditingController(text: user.displayName);
+    final nameCtrl = TextEditingController(text: user.username);
     final phoneCtrl = TextEditingController(text: user.phone);
     final emailCtrl = TextEditingController(text: user.email);
     bool elderMode = user.elderMode;
@@ -219,7 +181,7 @@ ADMIN PROMPT: Please generate a comprehensive operational report. Highlight core
             ElevatedButton(
               onPressed: () {
                 context.read<FirestoreService>().updateUser(user.uid, {
-                  'displayName': nameCtrl.text.trim(),
+                  'username': nameCtrl.text.trim(),
                   'phone': phoneCtrl.text.trim(),
                   'email': emailCtrl.text.trim().isEmpty ? null : emailCtrl.text.trim(),
                   'elderMode': elderMode,
@@ -250,7 +212,7 @@ ADMIN PROMPT: Please generate a comprehensive operational report. Highlight core
               const SizedBox(height: 12),
               Container(width: 40, height: 4, decoration: BoxDecoration(color: const Color(0xFFE5E2F0), borderRadius: BorderRadius.circular(2))),
               const SizedBox(height: 16),
-              Text('Manage ${user.displayName}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1E1E2D))),
+              Text('Manage ${user.username}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1E1E2D))),
               const SizedBox(height: 16),
               ListTile(
                 leading: const Icon(Icons.edit_rounded, color: Color(0xFF6B5CD1)),
@@ -486,7 +448,7 @@ ADMIN PROMPT: Please generate a comprehensive operational report. Highlight core
   }
 
   Widget _buildUsersTab(List<UserModel> users) {
-    final filtered = users.where((u) => u.displayName.toLowerCase().contains(_searchQuery.toLowerCase())).toList();
+    final filtered = users.where((u) => u.username.toLowerCase().contains(_searchQuery.toLowerCase())).toList();
 
     return Column(
       children: [
@@ -573,7 +535,7 @@ ADMIN PROMPT: Please generate a comprehensive operational report. Highlight core
                                     child: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
-                                        Text(u.displayName, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF1E1E2D)), maxLines: 1, overflow: TextOverflow.ellipsis),
+                                        Text(u.username, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF1E1E2D)), maxLines: 1, overflow: TextOverflow.ellipsis),
                                         Text('MEMBER', style: const TextStyle(fontSize: 10, color: Color(0xFFA09DB0), fontWeight: FontWeight.w600)),
                                       ],
                                     ),
@@ -704,22 +666,7 @@ ADMIN PROMPT: Please generate a comprehensive operational report. Highlight core
             ),
           ),
           
-          const SizedBox(height: 12),
-          
-          SizedBox(
-            width: double.infinity,
-            height: 50,
-            child: OutlinedButton.icon(
-              onPressed: _seedDummyLogs,
-              icon: const Icon(Icons.dataset_rounded, color: Color(0xFF6B5CD1)),
-              label: const Text('Seed Dummy Logs Dataset', style: TextStyle(color: Color(0xFF1E1E2D))),
-              style: OutlinedButton.styleFrom(
-                side: const BorderSide(color: Color(0xFFD6D4E3), width: 1.5),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-            ),
-          ),
-          
+
           if (_aiReport.isNotEmpty) ...[
             const SizedBox(height: 24),
             const Divider(color: Color(0xFFF0EFF5)),

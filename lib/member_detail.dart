@@ -47,7 +47,7 @@ class _S extends State<MemberDetailScreen> with SingleTickerProviderStateMixin {
           icon: Icon(Icons.arrow_back_ios_rounded, size: e ? 22 : 18, color: C.textDark),
           onPressed: () => Navigator.pop(context),
         ),
-        title: Text(m.displayName, style: TextStyle(fontSize: context.fs(C.fH2), fontWeight: FontWeight.w900, color: C.textDark)),
+        title: Text(m.username, style: TextStyle(fontSize: context.fs(C.fH2), fontWeight: FontWeight.w900, color: C.textDark)),
         bottom: TabBar(
           controller: _tc,
           labelColor: C.primary,
@@ -112,7 +112,7 @@ class _LocTab extends StatelessWidget {
                             return Expanded(
                               child: Image.network(
                                 LocationService.getMapTileUrl(location.lat, location.lng, dx: dx),
-                                headers: const {'User-Agent': 'CareCompanion/2.0'},
+                                headers: const {'User-Agent': 'Carely/2.0'},
                                 fit: BoxFit.cover,
                                 height: e ? 230 : 200,
                                 errorBuilder: (_, _, _) => Container(color: C.primarySoft),
@@ -185,34 +185,6 @@ class _LocTab extends StatelessWidget {
                             child: const Text(
                               '© OpenStreetMap',
                               style: TextStyle(fontSize: 8, color: C.textMid),
-                            ),
-                          ),
-                        ),
-                      if (isSharing)
-                        Positioned(
-                          top: 14,
-                          left: 14,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: C.surface,
-                              borderRadius: BorderRadius.circular(20),
-                              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 8)],
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Container(
-                                  width: 8,
-                                  height: 8,
-                                  decoration: const BoxDecoration(color: C.green, shape: BoxShape.circle),
-                                ),
-                                const SizedBox(width: 6),
-                                Text(
-                                  'LIVE NOW',
-                                  style: TextStyle(fontSize: context.fs(C.fCap), fontWeight: FontWeight.w800, color: C.green),
-                                ),
-                              ],
                             ),
                           ),
                         ),

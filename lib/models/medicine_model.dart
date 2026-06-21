@@ -76,6 +76,7 @@ class MedLogModel {
   final DateTime takenAt;
   final String scheduledTime; // '08:00'
   final String status; // 'taken' or 'missed'
+  final String? proofUrl;
 
   const MedLogModel({
     required this.logId,
@@ -84,6 +85,7 @@ class MedLogModel {
     required this.takenAt,
     required this.scheduledTime,
     required this.status,
+    this.proofUrl,
   });
 
   factory MedLogModel.fromDoc(DocumentSnapshot doc) {
@@ -95,6 +97,7 @@ class MedLogModel {
       takenAt: (d['takenAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       scheduledTime: d['scheduledTime'] ?? '',
       status: d['status'] ?? 'taken',
+      proofUrl: d['proofUrl'],
     );
   }
 
@@ -104,6 +107,7 @@ class MedLogModel {
     'takenAt': Timestamp.fromDate(takenAt),
     'scheduledTime': scheduledTime,
     'status': status,
+    if (proofUrl != null) 'proofUrl': proofUrl,
   };
 
   bool get isTaken => status == 'taken';

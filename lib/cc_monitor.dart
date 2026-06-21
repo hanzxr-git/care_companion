@@ -13,6 +13,7 @@ import 'member_detail.dart';
 import 'cc_invite.dart';
 import 'screens/circle_management_screen.dart';
 import 'screens/auth/join_circle_screen.dart';
+import 'widgets/circle_wellness_graph.dart';
 
 class MonitorTab extends StatelessWidget {
   final CircleModel circle;
@@ -188,7 +189,7 @@ class MonitorTab extends StatelessWidget {
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.qr_code_scanner_rounded, color: C.primary),
+                leading: const Icon(Icons.vpn_key_rounded, color: C.primary),
                 title: const Text(
                   'Join Another Circle',
                   style: TextStyle(fontWeight: FontWeight.bold, color: C.primary),
@@ -265,71 +266,87 @@ class MonitorTab extends StatelessWidget {
               final members = snapshot.data ?? [];
               final visibleMembers = members.where((m) => m.uid != auth.uid!).toList();
 
-              return SafeArea(
-                child: ListView(
-                  padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
-                  children: [
-                    // Header Row
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Expanded(
-                          child: GestureDetector(
-                            onTap: () => _showCircleSwitcher(context),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Flexible(
-                                  child: Text(
-                                    activeCircle.name,
-                                    style: TextStyle(
-                                      fontSize: context.fs(C.fTitle - 4),
-                                      fontWeight: FontWeight.w900,
-                                      color: C.textDark,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                                const SizedBox(width: 4),
-                                Icon(Icons.keyboard_arrow_down_rounded, color: C.primary, size: context.fs(24)),
-                              ],
+              return CustomScrollView(
+                slivers: [
+                  SliverAppBar(
+                    pinned: true,
+                    floating: false,
+                    backgroundColor: Colors.white,
+                    elevation: 12,
+                    shadowColor: Colors.black.withValues(alpha: 0.25),
+                    forceElevated: true,
+                    surfaceTintColor: Colors.transparent,
+                    scrolledUnderElevation: 12,
+                    toolbarHeight: 80,
+                    titleSpacing: 20,
+                    title: GestureDetector(
+                      onTap: () => _showCircleSwitcher(context),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Flexible(
+                            child: Text(
+                              activeCircle.name,
+                              style: TextStyle(
+                                fontSize: context.fs(C.fTitle - 4),
+                                fontWeight: FontWeight.w900,
+                                color: C.textDark,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
-                        ),
-                        const SizedBox(width: 12),
-                        Row(
-                          children: [
-                            GestureDetector(
-                              onTap: () => _leaveCircle(context),
-                              child: Container(
-                                width: e ? 46 : 40,
-                                height: e ? 46 : 40,
-                                decoration: const BoxDecoration(color: C.surface, shape: BoxShape.circle),
-                                child: Icon(Icons.exit_to_app_rounded, color: C.textMid, size: e ? 22 : 18),
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            GestureDetector(
-                              onTap: () => showModalBottomSheet(
-                                context: context,
-                                isScrollControlled: true,
-                                backgroundColor: Colors.transparent,
-                                builder: (_) => InviteSheet(circle: activeCircle),
-                              ),
-                              child: Container(
-                                width: e ? 46 : 40,
-                                height: e ? 46 : 40,
-                                decoration: const BoxDecoration(color: C.primarySoft, shape: BoxShape.circle),
-                                child: Icon(Icons.person_add_rounded, color: C.primary, size: e ? 22 : 18),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
+                          const SizedBox(width: 4),
+                          Icon(Icons.keyboard_arrow_down_rounded, color: C.primary, size: context.fs(24)),
+                        ],
+                      ),
                     ),
-                    const SizedBox(height: 24),
+                    actions: [
+                      Row(
+                        children: [
+                          GestureDetector(
+                            onTap: () => _leaveCircle(context),
+                            child: Container(
+                              width: e ? 46 : 40,
+                              height: e ? 46 : 40,
+                              decoration: const BoxDecoration(color: C.surface, shape: BoxShape.circle),
+                              child: Icon(Icons.exit_to_app_rounded, color: C.textMid, size: e ? 22 : 18),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          GestureDetector(
+                            onTap: () => showModalBottomSheet(
+                              context: context,
+                              isScrollControlled: true,
+                              backgroundColor: Colors.transparent,
+                              builder: (_) => InviteSheet(circle: activeCircle),
+                            ),
+                            child: Container(
+                              width: e ? 46 : 40,
+                              height: e ? 46 : 40,
+                              decoration: BoxDecoration(
+                                color: C.primary,
+                                borderRadius: BorderRadius.circular(16),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: C.primary.withValues(alpha: 0.35),
+                                    blurRadius: 12,
+                                    offset: const Offset(0, 6),
+                                  ),
+                                ],
+                              ),
+                              child: Icon(Icons.person_add_rounded, color: Colors.white, size: e ? 22 : 18),
+                            ),
+                          ),
+                          const SizedBox(width: 20),
+                        ],
+                      ),
+                    ],
+                  ),
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(20, 24, 20, 120),
+                    sliver: SliverList(
+                      delegate: SliverChildListDelegate([
 
                     // Pending Join Requests
                     if (activeCircle.ownerId == auth.uid! && activeCircle.pendingRequestUids.isNotEmpty) ...[
@@ -385,7 +402,7 @@ class MonitorTab extends StatelessWidget {
                                           crossAxisAlignment: CrossAxisAlignment.start,
                                           children: [
                                             Text(
-                                              u.displayName,
+                                              u.username,
                                               style: const TextStyle(fontWeight: FontWeight.w900, fontSize: C.fBody, color: C.textDark),
                                             ),
                                             const SizedBox(height: 2),
@@ -424,19 +441,22 @@ class MonitorTab extends StatelessWidget {
                       ),
                     ],
 
+                    StreamBuilder<List<CheckinModel>>(
+                      stream: db.streamAllMonthlyCheckins(activeCircle.circleId),
+                      builder: (context, checkinSnap) {
+                        final checkins = checkinSnap.data ?? [];
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 24),
+                          child: CircleWellnessGraph(checkins: checkins, members: members),
+                        );
+                      },
+                    ),
+
                     // Circle Members Label / Row
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          'CIRCLE MEMBERS',
-                          style: TextStyle(
-                            fontSize: context.fs(C.fCap),
-                            fontWeight: FontWeight.w800,
-                            color: C.textMid,
-                            letterSpacing: 1.2,
-                          ),
-                        ),
+                        const CapLabel('CIRCLE MEMBERS'),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                           decoration: BoxDecoration(
@@ -534,8 +554,10 @@ class MonitorTab extends StatelessWidget {
                         ),
                       ),
                     ),
-                  ],
-                ),
+                  ]),
+                    ),
+                  ),
+                ],
               );
             },
           );
@@ -672,7 +694,7 @@ class _MemberCard extends StatelessWidget {
                                           children: [
                                             Expanded(
                                               child: Text(
-                                                member.displayName,
+                                                member.username,
                                                 style: TextStyle(
                                                   fontSize: context.fs(C.fH3),
                                                   fontWeight: FontWeight.w900,

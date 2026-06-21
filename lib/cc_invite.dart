@@ -1,6 +1,7 @@
 // cc_invite.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:share_plus/share_plus.dart';
 import 'cc_theme.dart';
 import 'models/circle_model.dart';
 
@@ -25,7 +26,7 @@ class InviteSheet extends StatelessWidget {
         Text('Add a person', style: TextStyle(
           fontSize: context.fs(C.sz20), fontWeight: FontWeight.w900, color: C.textDark)),
         SizedBox(height: e ? 5 : 4),
-        Text('Share your invite code or scan the QR',
+        Text('Share your invite code',
           style: TextStyle(fontSize: context.fs(C.sz14), color: C.textMid)),
         SizedBox(height: e ? 24 : 20),
         Container(
@@ -56,7 +57,10 @@ class InviteSheet extends StatelessWidget {
                   padding: EdgeInsets.symmetric(horizontal: e ? 20 : 16, vertical: e ? 10 : 8))),
               const SizedBox(width: 10),
               ElevatedButton.icon(
-                onPressed: () {},
+                onPressed: () {
+                  // ignore: deprecated_member_use
+                  Share.share('Join my care circle "${circle.name}" on Carely! Use invite code: $code');
+                },
                 icon: Icon(Icons.share_outlined, size: e ? 18 : 15),
                 label: Text('Share', style: TextStyle(fontSize: context.fs(C.sz12), fontWeight: FontWeight.w800)),
                 style: ElevatedButton.styleFrom(
@@ -67,22 +71,6 @@ class InviteSheet extends StatelessWidget {
           ]),
         ),
         SizedBox(height: e ? 16 : 14),
-        Row(children: const [
-          Expanded(child: Divider()),
-          Padding(padding: EdgeInsets.symmetric(horizontal: 14),
-            child: Text('or scan QR', style: TextStyle(color: C.textLight, fontSize: C.sz12))),
-          Expanded(child: Divider()),
-        ]),
-        SizedBox(height: e ? 16 : 14),
-        Center(child: Container(
-          width: e ? 150 : 120, height: e ? 150 : 120,
-          decoration: BoxDecoration(color: C.bg, borderRadius: BorderRadius.circular(12)),
-          child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-            Icon(Icons.qr_code_2_rounded, size: e ? 80 : 64, color: C.textDark),
-            Text('QR Code', style: TextStyle(fontSize: context.fs(C.sz10), color: C.textLight)),
-          ]),
-        )),
-        const SizedBox(height: 8),
       ]),
     );
   }

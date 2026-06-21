@@ -9,14 +9,20 @@ import '../../services/auth_service.dart';
 
 class OtpScreen extends StatefulWidget {
   final String phoneNumber;
-  final String displayName;
+  final String username;
   final bool isNewUser;
+  final String? email;
+  final String? gender;
+  final DateTime? birthDate;
 
   const OtpScreen({
     super.key,
     required this.phoneNumber,
-    required this.displayName,
+    required this.username,
     required this.isNewUser,
+    this.email,
+    this.gender,
+    this.birthDate,
   });
 
   @override
@@ -97,8 +103,11 @@ class _S extends State<OtpScreen> {
 
     final success = await auth.verifyOtp(
       otp: otp,
-      displayName: widget.displayName,
-      onError: (e) => _showError(e),
+      username: widget.username,
+      email: widget.email,
+      gender: widget.gender,
+      birthDate: widget.birthDate,
+      onError: _showError,
     );
 
     if (success && mounted) {
@@ -151,7 +160,7 @@ class _S extends State<OtpScreen> {
       _isNavigating = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
-          final name = auth.userModel?.displayName ?? widget.displayName;
+          final name = auth.userModel?.username ?? widget.username;
           final finalName = name.isNotEmpty ? name : 'User';
           final title = widget.isNewUser ? 'Welcome' : 'Welcome Back';
           C.showSuccess(context, title, 'Logged in as $finalName');
@@ -161,14 +170,25 @@ class _S extends State<OtpScreen> {
     }
 
     return Scaffold(
-      backgroundColor: C.bg,
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
-        backgroundColor: C.bg,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_rounded, color: C.textDark),
           onPressed: () => Navigator.pop(context)),
       ),
-      body: SafeArea(
+      body: Container(
+        width: double.infinity,
+        height: double.infinity,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [C.primary.withValues(alpha: 0.15), C.bg],
+          ),
+        ),
+        child: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24),
           child: Column(
@@ -265,6 +285,7 @@ class _S extends State<OtpScreen> {
             ],
           ),
         ),
+      ),
       ),
     );
   }

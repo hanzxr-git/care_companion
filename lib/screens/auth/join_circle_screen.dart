@@ -77,13 +77,24 @@ class _S extends State<JoinCircleScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: C.bg,
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
-        backgroundColor: C.bg,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_rounded, color: C.textDark),
           onPressed: () => Navigator.pop(context))),
-      body: SafeArea(
+      body: Container(
+        width: double.infinity,
+        height: double.infinity,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [C.primary.withValues(alpha: 0.15), C.bg],
+          ),
+        ),
+        child: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -160,6 +171,7 @@ class _S extends State<JoinCircleScreen> {
             )),
           ]),
         ),
+      ),
       ),
     );
   }

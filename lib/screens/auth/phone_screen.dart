@@ -4,9 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../cc_theme.dart';
-import '../../services/auth_service.dart';
+import '../../services/firestore_service.dart';
 import 'otp_screen.dart';
-import 'join_circle_screen.dart';
 
 class PhoneScreen extends StatefulWidget {
   const PhoneScreen({super.key});
@@ -17,7 +16,11 @@ class PhoneScreen extends StatefulWidget {
 class _S extends State<PhoneScreen> {
   final _phone = TextEditingController();
   final _name  = TextEditingController();
+  final _email = TextEditingController();
+  String? _gender;
+  DateTime? _birthDate;
   bool _isRegister = false;
+  bool _isLoading = false;
   String _countryCode = '+60'; // Malaysia default
 
   final _countries = [
@@ -30,9 +33,14 @@ class _S extends State<PhoneScreen> {
   ];
 
   @override
-  void dispose() { _phone.dispose(); _name.dispose(); super.dispose(); }
+  void dispose() { 
+    _phone.dispose(); 
+    _name.dispose(); 
+    _email.dispose();
+    super.dispose(); 
+  }
 
-  void _submit() {
+  void _submit() async {
     final number = _phone.text.trim();
     final name   = _name.text.trim();
 
@@ -49,11 +57,40 @@ class _S extends State<PhoneScreen> {
     final cleaned = number.startsWith('0') ? number.substring(1) : number;
     final fullNumber = '$_countryCode$cleaned';
 
-    Navigator.push(context, MaterialPageRoute(builder: (_) => OtpScreen(
-      phoneNumber: fullNumber,
-      displayName: _isRegister ? name : 'User',
-      isNewUser: _isRegister,
-    )));
+    setState(() => _isLoading = true);
+
+    try {
+      final db = context.read<FirestoreService>();
+      final exists = await db.phoneExists(fullNumber);
+
+      if (_isRegister && exists) {
+        _showError('This phone number is already registered. Please sign in instead.');
+        setState(() => _isLoading = false);
+        return;
+      }
+
+      if (!_isRegister && !exists) {
+        _showError('Account not found. Please register first.');
+        setState(() => _isLoading = false);
+        return;
+      }
+
+      if (!mounted) return;
+
+      Navigator.push(context, MaterialPageRoute(builder: (_) => OtpScreen(
+        phoneNumber: fullNumber,
+        username: _isRegister ? name : 'User',
+        isNewUser: _isRegister,
+        email: _isRegister ? _email.text.trim() : null,
+        gender: _isRegister ? _gender : null,
+        birthDate: _isRegister ? _birthDate : null,
+      ))).then((_) {
+        if (mounted) setState(() => _isLoading = false);
+      });
+    } catch (e) {
+      _showError('Verification failed: $e');
+      setState(() => _isLoading = false);
+    }
   }
 
   void _showError(String msg) {
@@ -64,11 +101,18 @@ class _S extends State<PhoneScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final auth = context.watch<AuthService>();
-
     return Scaffold(
-      backgroundColor: C.bg,
-      body: SafeArea(
+      body: Container(
+        width: double.infinity,
+        height: double.infinity,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [C.primary.withValues(alpha: 0.15), C.bg],
+          ),
+        ),
+        child: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 24),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -76,14 +120,12 @@ class _S extends State<PhoneScreen> {
 
             // Logo
             Center(child: Column(children: [
-              Container(
-                width: 72, height: 72,
-                decoration: BoxDecoration(
-                  color: C.primary, borderRadius: BorderRadius.circular(20)),
-                child: const Icon(Icons.favorite_rounded,
-                  color: Colors.white, size: 34)),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(20),
+                child: Image.asset('assets/logo.png', width: 72, height: 72),
+              ),
               const SizedBox(height: 16),
-              const Text('CareCompanion', style: TextStyle(
+              const Text('Carely', style: TextStyle(
                 fontSize: C.fTitle, fontWeight: FontWeight.w900, color: C.textDark)),
               const SizedBox(height: 6),
               const Text('Family wellness, simplified.', style: TextStyle(
@@ -107,13 +149,94 @@ class _S extends State<PhoneScreen> {
 
             // Name field (register only)
             if (_isRegister) ...[
-              _lbl('FULL NAME'),
+              _lbl('USERNAME'),
               TextField(
                 controller: _name,
                 textCapitalization: TextCapitalization.words,
                 style: const TextStyle(fontSize: C.fBody, fontWeight: FontWeight.w600, color: C.textDark),
-                decoration: _inputDec('Ahmad bin Ali', Icons.person_outline_rounded),
+                decoration: _inputDec('username', Icons.person_outline_rounded),
               ),
+              const SizedBox(height: 20),
+
+              _lbl('EMAIL (OPTIONAL)'),
+              TextField(
+                controller: _email,
+                keyboardType: TextInputType.emailAddress,
+                style: const TextStyle(fontSize: C.fBody, fontWeight: FontWeight.w600, color: C.textDark),
+                decoration: _inputDec('your@email.com', Icons.email_outlined),
+              ),
+              const SizedBox(height: 20),
+
+              Row(children: [
+                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  _lbl('GENDER (OPTIONAL)'),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    decoration: BoxDecoration(
+                      color: C.surface,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: C.divider),
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String>(
+                        isExpanded: true,
+                        hint: const Text('Select', style: TextStyle(color: C.textLight, fontSize: C.fBody)),
+                        value: _gender,
+                        icon: const Icon(Icons.keyboard_arrow_down_rounded, color: C.textMid),
+                        items: ['Male', 'Female', 'Other'].map((String value) {
+                          return DropdownMenuItem<String>(
+                            value: value,
+                            child: Text(value, style: const TextStyle(fontWeight: FontWeight.w600, color: C.textDark)),
+                          );
+                        }).toList(),
+                        onChanged: (newValue) {
+                          setState(() {
+                            _gender = newValue;
+                          });
+                        },
+                      ),
+                    ),
+                  ),
+                ])),
+                const SizedBox(width: 16),
+                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  _lbl('BIRTH DATE (OPTIONAL)'),
+                  GestureDetector(
+                    onTap: () async {
+                      final picked = await showDatePicker(
+                        context: context,
+                        initialDate: _birthDate ?? DateTime(2000),
+                        firstDate: DateTime(1900),
+                        lastDate: DateTime.now(),
+                        builder: (context, child) => Theme(data: C.theme, child: child!),
+                      );
+                      if (picked != null) {
+                        setState(() => _birthDate = picked);
+                      }
+                    },
+                    child: Container(
+                      height: 52,
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      decoration: BoxDecoration(
+                        color: C.surface,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: C.divider),
+                      ),
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        _birthDate == null 
+                            ? 'Select date' 
+                            : '${_birthDate!.day}/${_birthDate!.month}/${_birthDate!.year}',
+                        style: TextStyle(
+                          color: _birthDate == null ? C.textLight : C.textDark,
+                          fontSize: C.fBody,
+                          fontWeight: _birthDate == null ? FontWeight.normal : FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                ])),
+              ]),
               const SizedBox(height: 20),
             ],
 
@@ -151,7 +274,7 @@ class _S extends State<PhoneScreen> {
             const SizedBox(height: 10),
             Text(
               'Example: $_countryCode 12-345 6789 → enter 123456789',
-              style: const TextStyle(fontSize: C.fCap, color: C.textLight)),
+              style: const TextStyle(fontSize: C.fCap, color: C.textMid, fontWeight: FontWeight.w600)),
 
             const SizedBox(height: 32),
 
@@ -159,43 +282,20 @@ class _S extends State<PhoneScreen> {
             SizedBox(
               width: double.infinity, height: 56,
               child: ElevatedButton(
-                onPressed: auth.isLoading ? null : _submit,
+                onPressed: _isLoading ? null : _submit,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: C.primary, foregroundColor: Colors.white,
                   elevation: 0, shape: const StadiumBorder()),
-                child: auth.isLoading
+                child: _isLoading
                   ? const SizedBox(width: 22, height: 22,
                       child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5))
                   : Text(_isRegister ? 'Send OTP' : 'Continue',
                       style: const TextStyle(fontSize: C.fH3, fontWeight: FontWeight.w900)),
               ),
             ),
-
-            const SizedBox(height: 32),
-            Row(children: const [Expanded(child: Divider()),
-              Padding(padding: EdgeInsets.symmetric(horizontal: 14),
-                child: Text('or join with invite', style: TextStyle(color: C.textLight, fontSize: C.fCap))),
-              Expanded(child: Divider())]),
-            const SizedBox(height: 20),
-
-            // Join via invite code
-            SizedBox(
-              width: double.infinity, height: 54,
-              child: OutlinedButton.icon(
-                onPressed: () => Navigator.push(context,
-                  MaterialPageRoute(builder: (_) => const JoinCircleScreen())),
-                icon: const Icon(Icons.qr_code_scanner_rounded, size: 20),
-                label: const Text('Enter invite code',
-                  style: TextStyle(fontSize: C.fBody, fontWeight: FontWeight.w700)),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: C.primary,
-                  side: const BorderSide(color: C.primary),
-                  shape: const StadiumBorder()),
-              ),
-            ),
-            const SizedBox(height: 40),
           ]),
         ),
+      ),
       ),
     );
   }

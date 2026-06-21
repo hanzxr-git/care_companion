@@ -251,7 +251,7 @@ class CapLabel extends StatelessWidget {
     style: TextStyle(
       fontSize: context.fs(C.fCap),
       fontWeight: FontWeight.w800,
-      color: C.textMid,
+      color: C.primary,
       letterSpacing: 1.2,
     ));
 }

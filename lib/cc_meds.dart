@@ -4,9 +4,12 @@ import 'package:provider/provider.dart';
 import 'cc_theme.dart';
 import 'models/circle_model.dart';
 import 'models/medicine_model.dart';
+import 'dart:io';
+import 'package:image_picker/image_picker.dart';
 import 'services/auth_service.dart';
 import 'services/firestore_service.dart';
 import 'services/alarm_service.dart';
+import 'services/storage_service.dart';
 
 class MedsTab extends StatefulWidget {
   final CircleModel circle;
@@ -97,36 +100,154 @@ class _S extends State<MedsTab> {
     }
   }
 
-  void _toggleMedTaken(MedicineModel med, String targetUid, String time, bool taken) async {
+  void _showMedicationDialog(_DisplayMed item, String targetUid) {
     final db = context.read<FirestoreService>();
-    try {
-      if (taken) {
-        await db.unlogMedicineTaken(medId: med.medId, uid: targetUid, scheduledTime: time);
-        if (mounted) {
-          C.showSuccess(context, 'Medication Untaken', '${med.name} marked as not taken.');
-        }
-      } else {
-        await db.logMedicineTaken(medId: med.medId, uid: targetUid, scheduledTime: time);
-        if (med.deleteAfterTaken) {
-          await db.deactivateMedicine(med.medId);
-          await AlarmService.cancelAlarm(med);
-          if (mounted) {
-            C.showSuccess(context, 'Medication Taken & Deleted', '${med.name} marked as taken and schedule deleted.');
-          }
-        } else {
-          if (mounted) {
-            C.showSuccess(context, 'Medication Taken', '${med.name} marked as taken.');
-          }
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Failed to update log.'),
-          behavior: SnackBarBehavior.floating,
-        ));
-      }
-    }
+    final med = item.med;
+    final time = item.time;
+    final taken = item.taken;
+    final log = item.log;
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          backgroundColor: C.bg,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          title: Text(
+            taken ? 'Medication Taken' : 'Take Medication',
+            style: const TextStyle(fontWeight: FontWeight.w900, color: C.textDark),
+          ),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  taken && log != null 
+                    ? '${med.name} at ${_formatTimeStr("${log.takenAt.hour.toString().padLeft(2, '0')}:${log.takenAt.minute.toString().padLeft(2, '0')}")}'
+                    : '${med.name} at ${_formatTimeStr(time)}',
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: C.primary),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 16),
+                if (taken) ...[
+                  if (log?.proofUrl != null) ...[
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(16),
+                      child: Image.network(
+                        log!.proofUrl!,
+                        height: 200,
+                        fit: BoxFit.cover,
+                      loadingBuilder: (_, child, progress) {
+                        if (progress == null) return child;
+                        return const SizedBox(
+                          height: 200,
+                          child: Center(child: CircularProgressIndicator(color: C.primary)),
+                        );
+                      },
+                      errorBuilder: (_, _, _) => const SizedBox(
+                        height: 200,
+                        child: Center(child: Icon(Icons.broken_image, size: 48, color: C.textLight)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  ],
+                  ElevatedButton(
+                    onPressed: () async {
+                      Navigator.pop(ctx);
+                      
+                      // Delete proof image
+                      if (log?.proofUrl != null) {
+                        await StorageService.deleteMedicineProof(log!.proofUrl!);
+                      }
+                      
+                      // Unlog
+                      await db.unlogMedicineTaken(medId: med.medId, uid: targetUid, scheduledTime: time);
+                      if (mounted) {
+                        C.showSuccess(context, 'Medication Untaken', '${med.name} marked as not taken.');
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: C.red,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      elevation: 0,
+                    ),
+                    child: const Text('Undo (Mark as Not Taken)', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+                  ),
+                ] else ...[
+                const Text(
+                  'Please provide a photo proof to mark this medication as taken.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: C.textMid),
+                ),
+                const SizedBox(height: 24),
+                ElevatedButton(
+                  onPressed: () async {
+                    Navigator.pop(ctx);
+                    
+                    final picker = ImagePicker();
+                    final photo = await picker.pickImage(source: ImageSource.camera);
+                    if (photo == null) return;
+                    
+                    if (mounted) {
+                      showDialog(
+                        context: context,
+                        barrierDismissible: false,
+                        builder: (_) => const Center(child: CircularProgressIndicator(color: C.primary)),
+                      );
+                    }
+                    
+                    final proofUrl = await StorageService.uploadMedicineProof(targetUid, med.medId, File(photo.path));
+                    
+                    if (mounted) {
+                      Navigator.pop(context); // close loading
+                    }
+                    
+                    if (proofUrl == null) {
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to upload proof.')));
+                      }
+                      return;
+                    }
+
+                    await db.logMedicineTaken(medId: med.medId, uid: targetUid, scheduledTime: time, proofUrl: proofUrl);
+                    if (med.deleteAfterTaken) {
+                      await db.deactivateMedicine(med.medId);
+                      await AlarmService.cancelAlarm(med);
+                      if (mounted) {
+                        C.showSuccess(context, 'Medication Taken & Deleted', '${med.name} marked as taken and schedule deleted.');
+                      }
+                    } else {
+                      if (mounted) {
+                        C.showSuccess(context, 'Medication Taken', '${med.name} marked as taken.');
+                      }
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: C.primary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    elevation: 0,
+                  ),
+                  child: const Text('Take Photo Proof', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+                ),
+              ],
+              const SizedBox(height: 12),
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Close', style: TextStyle(fontWeight: FontWeight.bold, color: C.textMid)),
+              ),
+            ],
+          ),
+        ),
+        );
+      },
+    );
   }
 
   void _saveMedicine({
@@ -211,71 +332,68 @@ class _S extends State<MedsTab> {
                   for (final med in medicines) {
                     if (!med.isScheduledToday) continue;
                     for (final time in med.times) {
-                      final taken = logs.any((l) => l.medId == med.medId && l.scheduledTime == time);
-                      displayMeds.add(_DisplayMed(med: med, time: time, taken: taken));
+                      final logsForTime = logs.where((l) => l.medId == med.medId && l.scheduledTime == time);
+                      final taken = logsForTime.isNotEmpty;
+                      final log = taken ? logsForTime.first : null;
+                      displayMeds.add(_DisplayMed(med: med, time: time, taken: taken, log: log));
                     }
                   }
 
                   final takenCount = displayMeds.where((m) => m.taken).length;
                   final pct = displayMeds.isEmpty ? 0.0 : takenCount / displayMeds.length;
 
-                  return SafeArea(
-                    child: ListView(
-                      padding: const EdgeInsets.fromLTRB(20, 28, 20, 32),
-                      children: [
-                        // Header
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Medicine',
-                                  style: TextStyle(
-                                    fontSize: context.fs(36),
-                                    fontWeight: FontWeight.w900,
-                                    color: C.textDark,
-                                    letterSpacing: -0.5,
-                                  ),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  'DAILY WELLNESS TRACKER',
-                                  style: TextStyle(
-                                    fontSize: context.fs(11),
-                                    color: C.primary,
-                                    fontWeight: FontWeight.w800,
-                                    letterSpacing: 1.5,
-                                  ),
+              return CustomScrollView(
+                slivers: [
+                  SliverAppBar(
+                    pinned: true,
+                    floating: false,
+                    backgroundColor: Colors.white,
+                    elevation: 12,
+                    shadowColor: Colors.black.withValues(alpha: 0.25),
+                    forceElevated: true,
+                    surfaceTintColor: Colors.transparent,
+                    scrolledUnderElevation: 12,
+                    toolbarHeight: 80,
+                    titleSpacing: 20,
+                    title: Text(
+                      'Medicine',
+                      style: TextStyle(
+                        fontSize: context.fs(36),
+                        fontWeight: FontWeight.w900,
+                        color: C.textDark,
+                        letterSpacing: -0.5,
+                      ),
+                    ),
+                    actions: [
+                      Padding(
+                        padding: const EdgeInsets.only(right: 20),
+                        child: GestureDetector(
+                          onTap: () => _showAdd(context, targetUid, auth.uid!),
+                          child: Container(
+                            width: e ? 56 : 48,
+                            height: e ? 56 : 48,
+                            decoration: BoxDecoration(
+                              color: C.primary,
+                              borderRadius: BorderRadius.circular(18),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: C.primary.withValues(alpha: 0.35),
+                                  blurRadius: 12,
+                                  offset: const Offset(0, 6),
                                 ),
                               ],
                             ),
-                            GestureDetector(
-                              onTap: () => _showAdd(context, targetUid, auth.uid!),
-                              child: Container(
-                                width: e ? 56 : 48,
-                                height: e ? 56 : 48,
-                                decoration: BoxDecoration(
-                                  color: C.primary,
-                                  borderRadius: BorderRadius.circular(18),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: C.primary.withValues(alpha: 0.35),
-                                      blurRadius: 12,
-                                      offset: const Offset(0, 6),
-                                    ),
-                                  ],
-                                ),
-                                child: Icon(Icons.add_rounded, color: Colors.white, size: e ? 30 : 26),
-                              ),
-                            ),
-                          ],
+                            child: Icon(Icons.add_rounded, color: Colors.white, size: e ? 30 : 26),
+                          ),
                         ),
-                        const SizedBox(height: 24),
-
-                        // Daily Adherence card
+                      ),
+                    ],
+                  ),
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(20, 24, 20, 120),
+                    sliver: SliverList(
+                      delegate: SliverChildListDelegate([
+                              // Daily Adherence card
                         Container(
                           width: double.infinity,
                           decoration: BoxDecoration(
@@ -469,7 +587,7 @@ class _S extends State<MedsTab> {
                                           ),
                                         ),
                                         GestureDetector(
-                                          onTap: () => _toggleMedTaken(item.med, targetUid, item.time, item.taken),
+                                          onTap: () => _showMedicationDialog(item, targetUid),
                                           child: AnimatedContainer(
                                             duration: const Duration(milliseconds: 180),
                                             padding: EdgeInsets.symmetric(horizontal: e ? 24 : 18, vertical: e ? 12 : 9),
@@ -502,11 +620,13 @@ class _S extends State<MedsTab> {
                               );
                             }).toList(),
                           ),
+                            ]),
+                          ),
+                        ),
                       ],
-                    ),
-                  );
-            },
-          );
+                    );
+                },
+              );
         },
       ),
     );
@@ -701,32 +821,7 @@ class _S extends State<MedsTab> {
                         ),
                       ),
                     ),
-                    const Divider(height: 1, color: C.divider, indent: 16, endIndent: 16),
-                    // Vibrate Switch row
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 16),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text(
-                            'Vibrate when notification sounds',
-                            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: C.textDark),
-                          ),
-                          Switch(
-                            value: vibrate,
-                            activeThumbColor: Colors.white,
-                            activeTrackColor: C.primary,
-                            inactiveThumbColor: Colors.white,
-                            inactiveTrackColor: C.textLight.withValues(alpha: 0.4),
-                            trackOutlineColor: WidgetStateProperty.all(Colors.transparent),
-                            onChanged: (val) {
-                              setModalState(() => vibrate = val);
-                            },
-                          ),
-                        ],
-                      ),
-                    ),
-                    const Divider(height: 1, color: C.divider, indent: 16, endIndent: 16),
+
                     // Delete After Switch row
                     Padding(
                       padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 16),
@@ -1005,32 +1100,7 @@ class _S extends State<MedsTab> {
                         ),
                       ),
                     ),
-                    const Divider(height: 1, color: C.divider, indent: 16, endIndent: 16),
-                    // Vibrate Switch row
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 16),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text(
-                            'Vibrate when notification sounds',
-                            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: C.textDark),
-                          ),
-                          Switch(
-                            value: vibrate,
-                            activeThumbColor: Colors.white,
-                            activeTrackColor: C.primary,
-                            inactiveThumbColor: Colors.white,
-                            inactiveTrackColor: C.textLight.withValues(alpha: 0.4),
-                            trackOutlineColor: WidgetStateProperty.all(Colors.transparent),
-                            onChanged: (val) {
-                              setModalState(() => vibrate = val);
-                            },
-                          ),
-                        ],
-                      ),
-                    ),
-                    const Divider(height: 1, color: C.divider, indent: 16, endIndent: 16),
+
                     // Delete After Switch row
                     Padding(
                       padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 16),
@@ -1260,5 +1330,6 @@ class _DisplayMed {
   final MedicineModel med;
   final String time;
   final bool taken;
-  _DisplayMed({required this.med, required this.time, required this.taken});
+  final MedLogModel? log;
+  _DisplayMed({required this.med, required this.time, required this.taken, this.log});
 }

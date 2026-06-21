@@ -7,6 +7,7 @@ import '../models/checkin_model.dart';
 import '../models/medicine_model.dart';
 import '../models/location_model.dart';
 import '../models/audit_log_model.dart';
+import '../models/notification_model.dart';
 
 class FirestoreService {
   final _db = FirebaseFirestore.instance;
@@ -25,12 +26,27 @@ class FirestoreService {
   /// Create user document after phone auth
   Future<void> createUser(UserModel user) async {
     await _users.doc(user.uid).set(user.toMap());
+    await logSystemEvent('User Registered', 'New user ${user.username} registered via phone auth.');
+    
+    // Welcome Notification
+    await createNotification(
+      user.uid,
+      title: 'Welcome to Carely!',
+      body: 'We are so glad to have you. Please explore and join a circle!',
+      type: 'WELCOME',
+    );
   }
 
-  /// Check if user document exists (returning user vs new)
+  /// Check if user document exists by UID
   Future<bool> userExists(String uid) async {
     final doc = await _users.doc(uid).get();
     return doc.exists;
+  }
+
+  /// Check if user document exists by phone number
+  Future<bool> phoneExists(String phone) async {
+    final query = await _users.where('phone', isEqualTo: phone).limit(1).get();
+    return query.docs.isNotEmpty;
   }
 
   /// Get user by uid (one-time fetch)
@@ -48,6 +64,7 @@ class FirestoreService {
   /// Update user fields
   Future<void> updateUser(String uid, Map<String, dynamic> fields) async {
     await _users.doc(uid).update(fields);
+    await logSystemEvent('Profile Updated', 'User $uid updated profile fields: ${fields.keys.join(", ")}');
   }
 
   /// Update FCM token when it refreshes
@@ -64,7 +81,7 @@ class FirestoreService {
   /// Delete user profile (Admin only)
   Future<void> deleteUserProfile(String uid) async {
     final doc = await _users.doc(uid).get();
-    final name = doc.exists ? (doc.data() as Map<String, dynamic>)['displayName'] ?? uid : uid;
+    final name = doc.exists ? (doc.data() as Map<String, dynamic>)['username'] ?? (doc.data() as Map<String, dynamic>)['displayName'] ?? uid : uid;
     await _users.doc(uid).delete();
     await logSystemEvent('User Deleted', 'Admin deleted user profile for $name');
   }
@@ -99,6 +116,7 @@ class FirestoreService {
       createdAt: DateTime.now(),
     );
     await ref.set(circle.toMap());
+    await logSystemEvent('Circle Created', 'User $ownerUid created a new circle: "$name".');
     return circle;
   }
 
@@ -165,6 +183,15 @@ class FirestoreService {
       'members': FieldValue.arrayUnion([newMember.toMap()]),
       'memberUids': FieldValue.arrayUnion([uid]),
     });
+    
+    // Circle Join Notification
+    await createNotification(
+      uid,
+      title: 'Circle Joined',
+      body: 'You have successfully joined ${circle.name}.',
+      type: 'CIRCLE',
+      referenceId: circleId,
+    );
   }
 
   /// Decline a join request
@@ -264,12 +291,18 @@ class FirestoreService {
         'timestamp': Timestamp.fromDate(DateTime.now()),
       };
       if (mood != null) updates['mood'] = mood;
-      if (note != null) updates['note'] = note;
+      
+      if (mood == 'okay') {
+        updates['note'] = FieldValue.delete();
+      } else if (note != null) {
+        updates['note'] = note;
+      }
+      
       await _checkins.doc(todayCheckin.checkinId).update(updates);
       
       if (mood == 'SOS') {
         final udoc = await _users.doc(uid).get();
-        final name = udoc.exists ? (udoc.data() as Map)['displayName'] : 'User';
+        final name = udoc.exists ? ((udoc.data() as Map)['username'] ?? (udoc.data() as Map)['Username'] ?? (udoc.data() as Map)['displayName'] ?? (udoc.data() as Map)['DisplayName'] ?? 'User') : 'User';
         await logSystemEvent('Alert Triggered', 'SOS triggered by $name.');
       }
       
@@ -280,7 +313,7 @@ class FirestoreService {
         mood: mood ?? todayCheckin.mood,
         timestamp: DateTime.now(),
         streakDay: todayCheckin.streakDay,
-        note: note ?? todayCheckin.note,
+        note: mood == 'okay' ? null : (note ?? todayCheckin.note),
       );
     }
 
@@ -296,6 +329,19 @@ class FirestoreService {
       note: note,
     );
     await ref.set(checkin.toMap());
+    await logSystemEvent('Check-in Completed', 'User $uid checked in to circle $circleId (Status: ${mood ?? 'Safe'}).');
+    
+    // Streak Notification (Milestones)
+    final newStreak = streak + 1;
+    if (newStreak == 3 || newStreak == 7 || newStreak == 14 || newStreak == 30 || newStreak % 30 == 0) {
+      await createNotification(
+        uid,
+        title: 'Streak Milestone!',
+        body: 'Amazing! You have checked in for $newStreak days in a row.',
+        type: 'STREAK',
+      );
+    }
+    
     return checkin;
   }
 
@@ -333,6 +379,31 @@ class FirestoreService {
         final filtered = list.where((c) => c.circleId == circleId).toList();
         filtered.sort((a, b) => b.timestamp.compareTo(a.timestamp));
         return filtered.take(14).toList();
+      });
+
+  /// Stream check-ins for the current month
+  Stream<List<CheckinModel>> streamMonthlyCheckins(String uid, String circleId) =>
+    _checkins
+      .where('uid', isEqualTo: uid)
+      .snapshots()
+      .map((q) {
+        final list = q.docs.map(CheckinModel.fromDoc).toList();
+        final filtered = list.where((c) => c.circleId == circleId).toList();
+        filtered.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+        final now = DateTime.now();
+        return filtered.where((c) => c.timestamp.year == now.year && c.timestamp.month == now.month).toList();
+      });
+
+  /// Stream check-ins for the current month for an entire circle
+  Stream<List<CheckinModel>> streamAllMonthlyCheckins(String circleId) =>
+    _checkins
+      .where('circleId', isEqualTo: circleId)
+      .snapshots()
+      .map((q) {
+        final list = q.docs.map(CheckinModel.fromDoc).toList();
+        list.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+        final now = DateTime.now();
+        return list.where((c) => c.timestamp.year == now.year && c.timestamp.month == now.month).toList();
       });
 
   /// Calculate current streak from previous check-ins
@@ -389,6 +460,7 @@ class FirestoreService {
       deleteAfterTaken: deleteAfterTaken ?? false,
     );
     await ref.set(med.toMap());
+    await logSystemEvent('Medication Added', 'Medication "$name" added by $createdBy.');
     return med;
   }
 
@@ -436,6 +508,7 @@ class FirestoreService {
     required String medId,
     required String uid,
     required String scheduledTime,
+    String? proofUrl,
   }) async {
     final ref = _medLogs.doc();
     final log = MedLogModel(
@@ -445,8 +518,10 @@ class FirestoreService {
       takenAt: DateTime.now(),
       scheduledTime: scheduledTime,
       status: 'taken',
+      proofUrl: proofUrl,
     );
     await ref.set(log.toMap());
+    await logSystemEvent('Medication Logged', 'Medication $medId logged as taken by $uid.');
     return log;
   }
 
@@ -511,10 +586,10 @@ class FirestoreService {
     _locations.doc(uid).snapshots().map((doc) =>
       doc.exists ? LocationModel.fromDoc(doc) : null);
 
-  /// Toggle location sharing
   Future<void> setLocationSharing(String uid, bool sharing) async {
     await _locations.doc(uid).update({'sharing': sharing});
     await _users.doc(uid).update({'locationSharing': sharing});
+    await logSystemEvent('Location Settings', 'User $uid set location sharing to $sharing.');
   }
 
   // ─── SYSTEM LOGS (Admin) ─────────────────────────────────
@@ -535,5 +610,67 @@ class FirestoreService {
         .limit(50)
         .snapshots()
         .map((q) => q.docs.map(AuditLogModel.fromDoc).toList());
+  }
+
+  // ─── NOTIFICATIONS ────────────────────────────────────────
+
+  /// Stream notifications for a user
+  Stream<List<NotificationModel>> streamNotifications(String uid) {
+    return _users.doc(uid).collection('notifications')
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((snap) => snap.docs
+            .map((doc) => NotificationModel.fromMap(doc.id, doc.data()))
+            .toList());
+  }
+
+  /// Create a persistent notification
+  Future<void> createNotification(String uid, {
+    required String title,
+    required String body,
+    required String type,
+    String? referenceId,
+  }) async {
+    final ref = _users.doc(uid).collection('notifications').doc();
+    final notif = NotificationModel(
+      id: ref.id,
+      type: type,
+      title: title,
+      body: body,
+      createdAt: DateTime.now(),
+      isRead: false,
+      referenceId: referenceId,
+    );
+    await ref.set(notif.toMap());
+  }
+
+  /// Mark a single notification as read
+  Future<void> markNotificationAsRead(String uid, String notificationId) async {
+    await _users.doc(uid).collection('notifications').doc(notificationId).update({'isRead': true});
+  }
+
+  /// Mark all notifications as read
+  Future<void> markAllNotificationsAsRead(String uid) async {
+    final batch = _db.batch();
+    final unread = await _users.doc(uid).collection('notifications').where('isRead', isEqualTo: false).get();
+    for (var doc in unread.docs) {
+      batch.update(doc.reference, {'isRead': true});
+    }
+    await batch.commit();
+  }
+
+  /// Delete a single notification
+  Future<void> deleteNotification(String uid, String notificationId) async {
+    await _users.doc(uid).collection('notifications').doc(notificationId).delete();
+  }
+
+  /// Delete all notifications
+  Future<void> deleteAllNotifications(String uid) async {
+    final batch = _db.batch();
+    final allNotifs = await _users.doc(uid).collection('notifications').get();
+    for (var doc in allNotifs.docs) {
+      batch.delete(doc.reference);
+    }
+    await batch.commit();
   }
 }

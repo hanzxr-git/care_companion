@@ -6,6 +6,7 @@ import 'models/circle_model.dart';
 import 'models/checkin_model.dart';
 import 'services/auth_service.dart';
 import 'services/firestore_service.dart';
+import 'widgets/monthly_checkin_graph.dart';
 
 class CheckinTab extends StatefulWidget {
   final CircleModel circle;
@@ -53,16 +54,16 @@ class _S extends State<CheckinTab> with SingleTickerProviderStateMixin {
     return 0;
   }
 
-  void _checkin(String targetUid, {String? mood}) async {
+  void _checkin(String targetUid, {String? mood, String? note}) async {
     final db = context.read<FirestoreService>();
     _ac.forward();
     try {
-      await db.submitCheckin(uid: targetUid, circleId: widget.circle.circleId, mood: mood);
+      await db.submitCheckin(uid: targetUid, circleId: widget.circle.circleId, mood: mood, note: note);
       if (mounted) {
         C.showSuccess(
           context, 
-          mood != null ? 'Mood Logged' : 'Checked In', 
-          mood != null ? 'Logged today\'s mood as ${mood.toLowerCase()}.' : 'You have notified your family circle.'
+          mood != null ? (mood == 'not okay' ? 'Checked In' : 'Mood Logged') : 'Checked In', 
+          mood != null ? (mood == 'not okay' ? 'You have notified your family that you are not okay.' : 'Logged today\'s mood as ${mood.toLowerCase()}.') : 'You have notified your family circle.'
         );
       }
     } catch (e) {
@@ -73,6 +74,149 @@ class _S extends State<CheckinTab> with SingleTickerProviderStateMixin {
         ));
       }
     }
+  }
+
+  void _showNotOkayDialog(BuildContext context, String targetUid) {
+    String selectedReason = 'Fever or High Temperature';
+    final TextEditingController otherController = TextEditingController();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (BuildContext ctx, StateSetter setModalState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                left: 24, right: 24, top: 24,
+                bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'What\'s wrong?',
+                    style: TextStyle(
+                      fontSize: context.fs(C.fTitle),
+                      fontWeight: FontWeight.w900,
+                      color: C.textDark,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Please let your family know how you are feeling.',
+                    style: TextStyle(
+                      fontSize: context.fs(C.fSub),
+                      color: C.textMid,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  
+                  // Using Flexible with SingleChildScrollView to prevent overflow if the list gets too long on small screens
+                  Flexible(
+                    child: SingleChildScrollView(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _buildRadioOption('Fever or High Temperature', selectedReason, (val) {
+                            setModalState(() => selectedReason = val!);
+                          }),
+                          _buildRadioOption('Headache or Migraine', selectedReason, (val) {
+                            setModalState(() => selectedReason = val!);
+                          }),
+                          _buildRadioOption('Cough or Sore Throat', selectedReason, (val) {
+                            setModalState(() => selectedReason = val!);
+                          }),
+                          _buildRadioOption('Stomach ache or Nausea', selectedReason, (val) {
+                            setModalState(() => selectedReason = val!);
+                          }),
+                          _buildRadioOption('Fatigue or Exhaustion', selectedReason, (val) {
+                            setModalState(() => selectedReason = val!);
+                          }),
+                          _buildRadioOption('Dizziness or Lightheadedness', selectedReason, (val) {
+                            setModalState(() => selectedReason = val!);
+                          }),
+                          _buildRadioOption('Other sickness', selectedReason, (val) {
+                            setModalState(() => selectedReason = val!);
+                          }),
+                          if (selectedReason == 'Other sickness')
+                            Padding(
+                              padding: const EdgeInsets.only(left: 32, right: 8, bottom: 12),
+                              child: TextField(
+                                controller: otherController,
+                                decoration: InputDecoration(
+                                  hintText: 'Please specify...',
+                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                ),
+                              ),
+                            ),
+                          _buildRadioOption('Rather not say', selectedReason, (val) {
+                            setModalState(() => selectedReason = val!);
+                          }),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: C.primary,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      ),
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        String note = selectedReason;
+                        if (selectedReason == 'Other sickness') {
+                          note = otherController.text.trim().isEmpty ? 'Other sickness' : otherController.text.trim();
+                        }
+                        _checkin(targetUid, mood: 'not okay', note: note);
+                      },
+                      child: Text(
+                        'CHECK IN',
+                        style: TextStyle(
+                          fontSize: context.fs(C.fBody),
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildRadioOption(String title, String groupValue, ValueChanged<String?> onChanged) {
+    final selected = title == groupValue;
+    return InkWell(
+      onTap: () => onChanged(title),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12.0),
+        child: Row(
+          children: [
+            Icon(
+              selected ? Icons.radio_button_checked : Icons.radio_button_off,
+              color: selected ? C.primary : Colors.grey,
+            ),
+            const SizedBox(width: 12),
+            Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
+          ],
+        ),
+      ),
+    );
   }
 
   Color _getStreakColor(int days) {
@@ -199,17 +343,32 @@ class _S extends State<CheckinTab> with SingleTickerProviderStateMixin {
                     c.timestamp.day == day.day);
               });
 
-              return SafeArea(
-                child: ListView(
-                  padding: const EdgeInsets.fromLTRB(20, 28, 20, 32),
-                  children: [
-                    Text('Daily Check-in', style: TextStyle(fontSize: context.fs(C.fTitle), fontWeight: FontWeight.w900, color: C.textDark)),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Keep your family circle updated.',
-                      style: TextStyle(fontSize: context.fs(C.fSub), color: C.textMid),
+              return CustomScrollView(
+                slivers: [
+                  SliverAppBar(
+                    pinned: true,
+                    floating: false,
+                    backgroundColor: Colors.white,
+                    elevation: 12,
+                    shadowColor: Colors.black.withValues(alpha: 0.25),
+                    forceElevated: true,
+                    surfaceTintColor: Colors.transparent,
+                    scrolledUnderElevation: 12,
+                    toolbarHeight: 72,
+                    titleSpacing: 20,
+                    title: Text(
+                      'Daily Check-in',
+                      style: TextStyle(
+                        fontSize: context.fs(C.fTitle),
+                        fontWeight: FontWeight.w900,
+                        color: C.textDark,
+                      ),
                     ),
-                    const SizedBox(height: 24),
+                  ),
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(20, 24, 20, 120),
+                    sliver: SliverList(
+                      delegate: SliverChildListDelegate([
 
                     // Streak circle
                     CC(
@@ -293,102 +452,156 @@ class _S extends State<CheckinTab> with SingleTickerProviderStateMixin {
                     // Big I AM OKAY / CHECKED IN button
                     ScaleTransition(
                       scale: _sc,
-                      child: hasCheckedIn
-                          ? Container(
-                              width: double.infinity,
-                              padding: EdgeInsets.symmetric(vertical: e ? 40 : 34),
-                              decoration: BoxDecoration(
-                                color: C.green,
-                                borderRadius: BorderRadius.circular(28),
-                                border: Border.all(color: Colors.white, width: 4.0),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: C.green.withValues(alpha: 0.25),
-                                    blurRadius: 16,
-                                    offset: const Offset(0, 6),
-                                  ),
-                                ],
-                              ),
-                              child: Column(
-                                children: [
-                                  Icon(
-                                    Icons.check_circle_outline_rounded,
-                                    color: Colors.white,
-                                    size: e ? 60 : 50,
-                                  ),
-                                  const SizedBox(height: 14),
-                                  Text(
-                                    'CHECK-IN COMPLETE',
-                                    style: TextStyle(
-                                      fontSize: context.fs(C.fH2),
-                                      fontWeight: FontWeight.w900,
-                                      color: Colors.white,
-                                      letterSpacing: 1.5,
+                      child: Column(
+                        children: [
+                          (hasCheckedIn && (todayCheckin.note?.isEmpty ?? true))
+                              ? GestureDetector(
+                                  onTap: () => _checkin(targetUid, mood: 'okay'),
+                                  child: Container(
+                                    width: double.infinity,
+                                    padding: EdgeInsets.symmetric(vertical: e ? 40 : 34),
+                                    decoration: BoxDecoration(
+                                      color: C.green,
+                                      borderRadius: BorderRadius.circular(28),
+                                      border: Border.all(color: Colors.white, width: 4.0),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: C.green.withValues(alpha: 0.25),
+                                          blurRadius: 16,
+                                          offset: const Offset(0, 6),
+                                        ),
+                                      ],
+                                    ),
+                                    child: Column(
+                                      children: [
+                                        Icon(
+                                          Icons.check_circle_outline_rounded,
+                                          color: Colors.white,
+                                          size: e ? 60 : 50,
+                                        ),
+                                        const SizedBox(height: 14),
+                                        Text(
+                                          'CHECK-IN COMPLETE',
+                                          style: TextStyle(
+                                            fontSize: context.fs(C.fH2),
+                                            fontWeight: FontWeight.w900,
+                                            color: Colors.white,
+                                            letterSpacing: 1.5,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 6),
+                                        Text(
+                                          'CHECKED IN SUCCESSFULLY',
+                                          style: TextStyle(
+                                            fontSize: context.fs(C.fCap),
+                                            color: Colors.white.withValues(alpha: 0.8),
+                                            letterSpacing: 1.5,
+                                            fontWeight: FontWeight.w800,
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
-                                  const SizedBox(height: 6),
-                                  Text(
-                                    'CHECKED IN SUCCESSFULLY',
-                                    style: TextStyle(
-                                      fontSize: context.fs(C.fCap),
-                                      color: Colors.white.withValues(alpha: 0.8),
-                                      letterSpacing: 1.5,
-                                      fontWeight: FontWeight.w800,
+                                )
+                              : GestureDetector(
+                                  onTap: () => _checkin(targetUid, mood: 'okay'),
+                                  child: Container(
+                                    width: double.infinity,
+                                    padding: EdgeInsets.symmetric(vertical: e ? 40 : 34),
+                                    decoration: BoxDecoration(
+                                      color: C.primary,
+                                      borderRadius: BorderRadius.circular(28),
+                                      border: Border.all(color: Colors.white, width: 4.0),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: C.primary.withValues(alpha: 0.25),
+                                          blurRadius: 16,
+                                          offset: const Offset(0, 6),
+                                        ),
+                                      ],
+                                    ),
+                                    child: Column(
+                                      children: [
+                                        Icon(
+                                          Icons.favorite_outline_rounded,
+                                          color: Colors.white,
+                                          size: e ? 60 : 50,
+                                        ),
+                                        const SizedBox(height: 14),
+                                        Text(
+                                          'I AM OKAY',
+                                          style: TextStyle(
+                                            fontSize: context.fs(C.fH2),
+                                            fontWeight: FontWeight.w900,
+                                            color: Colors.white,
+                                            letterSpacing: 2.5,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 6),
+                                        Text(
+                                          hasCheckedIn ? 'TAP TO CHANGE TO OKAY' : 'TAP TO CHECK IN TODAY',
+                                          style: TextStyle(
+                                            fontSize: context.fs(C.fCap),
+                                            color: Colors.white,
+                                            letterSpacing: 1.5,
+                                            fontWeight: FontWeight.w800,
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
-                                ],
-                              ),
-                            )
-                          : GestureDetector(
-                              onTap: () => _checkin(targetUid),
-                              child: Container(
-                                width: double.infinity,
-                                padding: EdgeInsets.symmetric(vertical: e ? 40 : 34),
-                                decoration: BoxDecoration(
-                                  color: C.primary,
-                                  borderRadius: BorderRadius.circular(28),
-                                  border: Border.all(color: Colors.white, width: 4.0),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: C.primary.withValues(alpha: 0.25),
-                                      blurRadius: 16,
-                                      offset: const Offset(0, 6),
-                                    ),
-                                  ],
                                 ),
-                                child: Column(
-                                  children: [
-                                    Icon(
-                                      Icons.favorite_outline_rounded,
-                                      color: Colors.white,
-                                      size: e ? 60 : 50,
+                              const SizedBox(height: 16),
+                              GestureDetector(
+                                onTap: () => _showNotOkayDialog(context, targetUid),
+                                child: Container(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.symmetric(vertical: 20),
+                                  decoration: BoxDecoration(
+                                    color: (todayCheckin?.note?.isNotEmpty ?? false) 
+                                        ? C.red.withValues(alpha: 0.1) 
+                                        : Colors.transparent,
+                                    borderRadius: BorderRadius.circular(28),
+                                    border: Border.all(
+                                      color: (todayCheckin?.note?.isNotEmpty ?? false) 
+                                          ? C.red 
+                                          : C.textLight, 
+                                      width: 2.0
                                     ),
-                                    const SizedBox(height: 14),
-                                    Text(
-                                      'I AM OKAY',
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      (todayCheckin?.note?.isNotEmpty ?? false) 
+                                          ? 'LOGGED AS: NOT OKAY' 
+                                          : 'I AM NOT OKAY',
                                       style: TextStyle(
-                                        fontSize: context.fs(C.fH2),
-                                        fontWeight: FontWeight.w900,
-                                        color: Colors.white,
-                                        letterSpacing: 2.5,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 6),
-                                    Text(
-                                      'TAP TO CHECK IN TODAY',
-                                      style: TextStyle(
-                                        fontSize: context.fs(C.fCap),
-                                        color: Colors.white,
-                                        letterSpacing: 1.5,
+                                        fontSize: context.fs(C.fBody),
                                         fontWeight: FontWeight.w800,
+                                        color: (todayCheckin?.note?.isNotEmpty ?? false) 
+                                            ? C.red 
+                                            : C.textMid,
+                                        letterSpacing: 1.5,
                                       ),
                                     ),
-                                  ],
+                                  ),
                                 ),
                               ),
-                            ),
+                            ],
+                          ),
                     ),
                     const SizedBox(height: 24),
+
+                    // ── Monthly Overview Section
+                    StreamBuilder<List<CheckinModel>>(
+                      stream: db.streamMonthlyCheckins(targetUid, widget.circle.circleId),
+                      builder: (context, snapshot) {
+                        if (!snapshot.hasData) return const SizedBox();
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 24),
+                          child: MonthlyCheckinGraph(checkins: snapshot.data ?? []),
+                        );
+                      },
+                    ),
 
                     // ── Streak Achievements Section
                     const CapLabel('STREAK ACHIEVEMENTS'),
@@ -448,11 +661,13 @@ class _S extends State<CheckinTab> with SingleTickerProviderStateMixin {
                         ],
                       ),
                     ),
-                  ],
-                 ),
+                      ]),
+                    ),
+                  ),
+                ],
               );
-            },
-      ),
-    );
-  }
+      },
+    ),
+  );
+}
 }

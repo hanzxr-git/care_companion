@@ -123,8 +123,9 @@ class _ProfileTabState extends State<ProfileTab> with SingleTickerProviderStateM
     return Scaffold(
       backgroundColor: C.bg,
       body: SafeArea(
+        bottom: false,
         child: ListView(
-          padding: EdgeInsets.zero,
+          padding: const EdgeInsets.only(bottom: 120),
           children: [
             // ── Gradient Hero Header ──────────────────────────────
             Container(
@@ -209,7 +210,7 @@ class _ProfileTabState extends State<ProfileTab> with SingleTickerProviderStateM
 
                   // Display Name
                   Text(
-                    user.displayName,
+                    user.username,
                     style: TextStyle(
                       fontSize: context.fs(C.fH2),
                       fontWeight: FontWeight.w900,
@@ -416,7 +417,7 @@ class _ProfileTabState extends State<ProfileTab> with SingleTickerProviderStateM
             SizedBox(height: e ? 10 : 8),
             _infoTile(
               icon: Icons.info_outline_rounded,
-              title: 'CareCompanion v2.0',
+              title: 'Carely',
               subtitle: 'Family circle wellness app',
               e: e,
               context: context,
@@ -471,15 +472,18 @@ class _ProfileTabState extends State<ProfileTab> with SingleTickerProviderStateM
 
   // ── Edit Profile Bottom Sheet ─────────────────────────────
   void _showEditProfile(BuildContext context, AuthService auth) {
-    final nameCtrl = TextEditingController(text: auth.userModel?.displayName);
+    final nameCtrl = TextEditingController(text: auth.userModel?.username);
     final emailCtrl = TextEditingController(text: auth.userModel?.email ?? '');
+    String? gender = auth.userModel?.gender;
+    DateTime? birthDate = auth.userModel?.birthDate;
     final e = context.elder;
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => Padding(
+      builder: (_) => StatefulBuilder(
+        builder: (ctx, setSheetState) => Padding(
         padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
         child: Container(
           padding: EdgeInsets.fromLTRB(22, 20, 22, e ? 40 : 32),
@@ -612,6 +616,94 @@ class _ProfileTabState extends State<ProfileTab> with SingleTickerProviderStateM
                   ),
                 ),
               ),
+              SizedBox(height: e ? 16 : 12),
+
+              Row(children: [
+                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(
+                    'GENDER (optional)',
+                    style: TextStyle(
+                      fontSize: context.fs(C.fCap),
+                      fontWeight: FontWeight.w800,
+                      color: C.textMid,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                  SizedBox(height: e ? 10 : 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    decoration: BoxDecoration(
+                      color: C.bg,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String>(
+                        isExpanded: true,
+                        hint: Text('Select', style: TextStyle(color: C.textLight, fontSize: context.fs(C.fBody))),
+                        value: gender,
+                        icon: const Icon(Icons.keyboard_arrow_down_rounded, color: C.textMid),
+                        items: ['Male', 'Female', 'Other'].map((String value) {
+                          return DropdownMenuItem<String>(
+                            value: value,
+                            child: Text(value, style: TextStyle(fontWeight: FontWeight.w600, color: C.textDark, fontSize: context.fs(C.fBody))),
+                          );
+                        }).toList(),
+                        onChanged: (newValue) {
+                          setSheetState(() {
+                            gender = newValue;
+                          });
+                        },
+                      ),
+                    ),
+                  ),
+                ])),
+                SizedBox(width: e ? 16 : 12),
+                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(
+                    'BIRTH DATE (optional)',
+                    style: TextStyle(
+                      fontSize: context.fs(C.fCap),
+                      fontWeight: FontWeight.w800,
+                      color: C.textMid,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                  SizedBox(height: e ? 10 : 8),
+                  GestureDetector(
+                    onTap: () async {
+                      final picked = await showDatePicker(
+                        context: context,
+                        initialDate: birthDate ?? DateTime(2000),
+                        firstDate: DateTime(1900),
+                        lastDate: DateTime.now(),
+                        builder: (context, child) => Theme(data: C.theme, child: child!),
+                      );
+                      if (picked != null) {
+                        setSheetState(() => birthDate = picked);
+                      }
+                    },
+                    child: Container(
+                      height: e ? 56 : 52,
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      decoration: BoxDecoration(
+                        color: C.bg,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        birthDate == null 
+                            ? 'Select date' 
+                            : '${birthDate!.day}/${birthDate!.month}/${birthDate!.year}',
+                        style: TextStyle(
+                          color: birthDate == null ? C.textLight : C.textDark,
+                          fontSize: context.fs(C.fBody),
+                          fontWeight: birthDate == null ? FontWeight.normal : FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                ])),
+              ]),
               SizedBox(height: e ? 26 : 20),
 
               SizedBox(
@@ -620,12 +712,14 @@ class _ProfileTabState extends State<ProfileTab> with SingleTickerProviderStateM
                 child: ElevatedButton(
                   onPressed: () async {
                     await auth.updateProfile(
-                      displayName: nameCtrl.text.trim().isEmpty
+                      username: nameCtrl.text.trim().isEmpty
                           ? null
                           : nameCtrl.text.trim(),
                       email: emailCtrl.text.trim().isEmpty
                           ? null
                           : emailCtrl.text.trim(),
+                      gender: gender,
+                      birthDate: birthDate,
                     );
                     if (context.mounted) Navigator.pop(context);
                   },
@@ -649,6 +743,7 @@ class _ProfileTabState extends State<ProfileTab> with SingleTickerProviderStateM
             ],
           ),
         ),
+      ),
       ),
     );
   }
@@ -684,9 +779,6 @@ class _ProfileTabState extends State<ProfileTab> with SingleTickerProviderStateM
               Navigator.pop(context);
               final messenger = ScaffoldMessenger.of(context);
               await auth.signOut();
-              if (context.mounted) {
-                Navigator.of(context).popUntil((route) => route.isFirst);
-              }
               C.showLogOut(messenger, 'Logged Out', 'Hope to see you soon!');
             },
             style: ElevatedButton.styleFrom(
@@ -717,7 +809,7 @@ class _ProfileTabState extends State<ProfileTab> with SingleTickerProviderStateM
       style: TextStyle(
         fontSize: ctx.fs(C.fCap),
         fontWeight: FontWeight.w800,
-        color: C.textMid,
+        color: C.primary,
         letterSpacing: 1.3,
       ),
     ),

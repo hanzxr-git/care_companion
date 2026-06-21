@@ -4,14 +4,12 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
 import 'cc_theme.dart';
 import 'cc_invite.dart';
-import 'cc_notifications.dart';
 import 'member_detail.dart';
 import 'models/circle_model.dart';
 import 'models/user_model.dart';
 import 'models/checkin_model.dart';
 import 'models/medicine_model.dart';
 import 'models/location_model.dart';
-import 'models/notification_model.dart';
 import 'services/auth_service.dart';
 import 'services/firestore_service.dart';
 import 'services/location_service.dart';
@@ -27,11 +25,11 @@ class HomeTab extends StatefulWidget {
 
 class _HomeTabState extends State<HomeTab> {
   final _moods = [
-    ('😄', 'GREAT'),
-    ('🙂', 'GOOD'),
-    ('😐', 'OKAY'),
-    ('😔', 'LOW'),
-    ('😢', 'SAD'),
+    ('≡ƒÿä', 'GREAT'),
+    ('≡ƒÖé', 'GOOD'),
+    ('≡ƒÿÉ', 'OKAY'),
+    ('≡ƒÿö', 'LOW'),
+    ('≡ƒÿó', 'SAD'),
   ];
 
   bool _isUpdatingLocation = false;
@@ -192,20 +190,15 @@ class _HomeTabState extends State<HomeTab> {
     return 0;
   }
 
-
-
   void _selectMood(String moodName, String targetUid, String circleId, CheckinModel? todayCheckin, int currentStreak) async {
     try {
-      final isUnselecting = todayCheckin?.mood?.toUpperCase() == moodName;
-      final newMood = isUnselecting ? null : moodName;
-
       if (todayCheckin != null) {
         // Update existing check-in directly (no composite query needed)
         await FirebaseFirestore.instance
             .collection('checkins')
             .doc(todayCheckin.checkinId)
             .update({
-          'mood': newMood,
+          'mood': moodName,
           'timestamp': Timestamp.fromDate(DateTime.now()),
         });
       } else {
@@ -214,17 +207,13 @@ class _HomeTabState extends State<HomeTab> {
         await ref.set({
           'uid': targetUid,
           'circleId': circleId,
-          'mood': newMood,
+          'mood': moodName,
           'timestamp': Timestamp.fromDate(DateTime.now()),
           'streakDay': currentStreak + 1,
         });
       }
       if (mounted) {
-        if (newMood == null) {
-          C.showSuccess(context, 'Mood Cleared', 'Your mood for today has been cleared.');
-        } else {
-          C.showSuccess(context, 'Mood Logged', 'Logged today\'s mood as ${newMood.toLowerCase()}.');
-        }
+        C.showSuccess(context, 'Mood Logged', 'Logged today\'s mood as ${moodName.toLowerCase()}.');
       }
     } catch (e) {
       debugPrint('[HomeTab] _selectMood error: $e');
@@ -239,24 +228,15 @@ class _HomeTabState extends State<HomeTab> {
   }
 
   void _toggleMedTaken(MedicineModel med, String targetUid, String time, bool taken) async {
-    final db = context.read<FirestoreService>();
     if (taken) {
-      try {
-        await db.unlogMedicineTaken(medId: med.medId, uid: targetUid, scheduledTime: time);
-        if (mounted) {
-          C.showSuccess(context, 'Medication Untaken', '${med.name} marked as not taken.');
-        }
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text('Failed to uncheck medication.'),
-            behavior: SnackBarBehavior.floating,
-          ));
-        }
-      }
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Medicine already marked as taken today!'),
+        behavior: SnackBarBehavior.floating,
+      ));
       return;
     }
 
+    final db = context.read<FirestoreService>();
     try {
       await db.logMedicineTaken(medId: med.medId, uid: targetUid, scheduledTime: time);
       if (mounted) {
@@ -338,12 +318,9 @@ class _HomeTabState extends State<HomeTab> {
                           SliverAppBar(
                             pinned: true,
                             floating: false,
-                            backgroundColor: Colors.white,
-                            elevation: 12,
-                            shadowColor: Colors.black.withValues(alpha: 0.25),
-                            forceElevated: true,
-                            surfaceTintColor: Colors.transparent,
-                            scrolledUnderElevation: 12,
+                            backgroundColor: C.bg,
+                            elevation: 0,
+                            scrolledUnderElevation: 0,
                             toolbarHeight: 72,
                             titleSpacing: 20,
                             title: Column(
@@ -375,37 +352,18 @@ class _HomeTabState extends State<HomeTab> {
                                 padding: const EdgeInsets.only(right: 16),
                                 child: PressableCard(
                                   onTap: () {
-                                    final startOfDay = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
-                                    final hasCheckedInToday = checkins.any((c) => c.timestamp.isAfter(startOfDay));
-                                    
-                                    // Calculate pending medicines
-                                    final now = DateTime.now();
-                                    final currentDay = now.weekday; // 1=Mon, 7=Sun
-                                    final todayMeds = medicines.where((m) => m.daysOfWeek.contains(currentDay)).toList();
-                                    
-                                    final List<String> pendingMedNames = [];
-                                    for (var med in todayMeds) {
-                                      for (var time in med.times) {
-                                        final isTaken = logs.any((log) => 
-                                          log.medId == med.medId && log.scheduledTime == time && log.takenAt.isAfter(startOfDay));
-                                        if (!isTaken) {
-                                          pendingMedNames.add('${med.name} at $time');
-                                        }
-                                      }
-                                    }
-
-                                    NotificationsSheet.show(context, hasCheckedInToday: hasCheckedInToday, pendingMedicines: pendingMedNames);
+                                    C.showNotification(
+                                      context,
+                                      title: "Notifications",
+                                      message: "No new notifications",
+                                      icon: Icons.notifications_none_rounded,
+                                      color: C.primary,
+                                      backgroundColor: C.primarySoft,
+                                    );
                                   },
                                   padding: EdgeInsets.zero,
-                                  color: C.primary,
-                                  borderRadius: BorderRadius.circular(18),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: C.primary.withValues(alpha: 0.35),
-                                      blurRadius: 12,
-                                      offset: const Offset(0, 6),
-                                    ),
-                                  ],
+                                  color: C.primarySoft,
+                                  borderRadius: BorderRadius.circular(24),
                                   child: SizedBox(
                                     width: e ? 48 : 42,
                                     height: e ? 48 : 42,
@@ -414,46 +372,19 @@ class _HomeTabState extends State<HomeTab> {
                                       children: [
                                         Icon(
                                           Icons.notifications_outlined,
-                                          color: Colors.white,
+                                          color: C.primary,
                                           size: context.ic,
                                         ),
                                         Positioned(
                                           top: e ? 12 : 10,
                                           right: e ? 12 : 10,
-                                          child: StreamBuilder<List<NotificationModel>>(
-                                            stream: context.read<FirestoreService>().streamNotifications(user.uid),
-                                            builder: (context, snapshot) {
-                                              final startOfDay = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
-                                              final hasCheckedInToday = checkins.any((c) => c.timestamp.isAfter(startOfDay));
-                                              
-                                              final now = DateTime.now();
-                                              final currentDay = now.weekday;
-                                              final todayMeds = medicines.where((m) => m.daysOfWeek.contains(currentDay)).toList();
-                                              bool hasPendingMeds = false;
-                                              for (var med in todayMeds) {
-                                                for (var time in med.times) {
-                                                  final isTaken = logs.any((log) => 
-                                                    log.medId == med.medId && log.scheduledTime == time && log.takenAt.isAfter(startOfDay));
-                                                  if (!isTaken) hasPendingMeds = true;
-                                                }
-                                              }
-
-                                              bool hasUnread = !hasCheckedInToday || hasPendingMeds; // local transient unread
-                                              if (snapshot.hasData) {
-                                                if (snapshot.data!.any((n) => !n.isRead)) {
-                                                  hasUnread = true;
-                                                }
-                                              }
-                                              if (!hasUnread) return const SizedBox.shrink();
-                                              return Container(
-                                                width: 8,
-                                                height: 8,
-                                                decoration: const BoxDecoration(
-                                                  color: C.red,
-                                                  shape: BoxShape.circle,
-                                                ),
-                                              );
-                                            }
+                                          child: Container(
+                                            width: 8,
+                                            height: 8,
+                                            decoration: const BoxDecoration(
+                                              color: C.primary,
+                                              shape: BoxShape.circle,
+                                            ),
                                           ),
                                         ),
                                       ],
@@ -464,10 +395,10 @@ class _HomeTabState extends State<HomeTab> {
                             ],
                           ),
                           SliverPadding(
-                            padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
+                            padding: const EdgeInsets.fromLTRB(20, 4, 20, 32),
                             sliver: SliverList(
                               delegate: SliverChildListDelegate([
-                                // ── Daily Streak card
+                                // ΓöÇΓöÇ Daily Streak card
                                 PressableCard(
                                   onTap: () => widget.onNavigateToTab?.call(1),
                                   padding: EdgeInsets.zero,
@@ -565,7 +496,7 @@ class _HomeTabState extends State<HomeTab> {
                                 const CapLabel('YOUR MOOD'),
                                 const SizedBox(height: 10),
 
-                                // ── Mood picker capsule
+                                // ΓöÇΓöÇ Mood picker capsule
                                 Container(
                                   width: double.infinity,
                                   padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
@@ -621,248 +552,7 @@ class _HomeTabState extends State<HomeTab> {
                                   ),
                                 ),
 
-                                // ── Wellness Prediction section
-                                const SizedBox(height: 22),
-                                const CapLabel('WELLNESS OVERVIEW'),
-                                const SizedBox(height: 10),
-                                Builder(builder: (ctx) {
-                                  final now = DateTime.now();
-                                  final today = DateTime(now.year, now.month, now.day);
-                                  List<double> weeklyData = List.filled(7, 0.5);
-                                  List<bool> weeklyCheckedIn = List.filled(7, false);
-                                  double totalWeightedScore = 0;
-                                  double totalWeight = 0;
-                                  bool hasTodayCheckin = false;
-                                  double todayTrueScore = 0.5;
-
-                                  for (int i = 0; i < 7; i++) {
-                                    final targetDate = today.subtract(Duration(days: 6 - i));
-                                    final match = checkins.where((c) => c.timestamp.year == targetDate.year && c.timestamp.month == targetDate.month && c.timestamp.day == targetDate.day);
-                                    if (match.isNotEmpty) {
-                                      final c = match.first;
-                                      double score = 0.5;
-                                      if (c.note != null && c.note!.isNotEmpty) {
-                                        score = 0.05;
-                                      } else {
-                                        final mood = c.mood?.toUpperCase();
-                                        if (mood == 'GREAT') {
-                                          score = 1.0;
-                                        } else if (mood == 'GOOD') {
-                                          score = 0.8;
-                                        } else if (mood == 'OKAY') {
-                                          score = 0.6;
-                                        } else if (mood == 'LOW') {
-                                          score = 0.3;
-                                        } else if (mood == 'SAD') {
-                                          score = 0.1;
-                                        } else if (mood == 'NOT OKAY') {
-                                          score = 0.05;
-                                        }
-                                      }
-                                      weeklyData[i] = score;
-                                      weeklyCheckedIn[i] = true;
-
-                                      // Weights: Today=3, Yesterday=2, Others=1
-                                      double weight = 1.0;
-                                      if (i == 6) {
-                                        weight = 3.0;
-                                        hasTodayCheckin = true;
-                                        todayTrueScore = score;
-                                      } else if (i == 5) {
-                                        weight = 2.0;
-                                      }
-
-                                      totalWeightedScore += (score * weight);
-                                      totalWeight += weight;
-                                    } else {
-                                      weeklyData[i] = 0.5;
-                                      weeklyCheckedIn[i] = false;
-                                    }
-                                  }
-
-                                  double wellnessScore = totalWeight > 0 ? totalWeightedScore / totalWeight : 0.5;
-
-                                  // Recency Override Rules
-                                  if (hasTodayCheckin) {
-                                    if (todayTrueScore < 0.3) {
-                                      // If today is very bad, cap overall score to max 0.59 (Needs Attention)
-                                      if (wellnessScore >= 0.6) wellnessScore = 0.59;
-                                    } else if (todayTrueScore <= 0.6) {
-                                      // If today is meh, cap overall score to max 0.79 (Good)
-                                      if (wellnessScore >= 0.8) wellnessScore = 0.79;
-                                    }
-                                  }
-                                  String wellnessText = 'Very Good';
-                                  Color wellnessColor = C.green;
-                                  String suggestionAction = 'Excellent! Keep up your healthy habits.';
-                                  String? recentSickness;
-                                  for (var c in checkins) {
-                                    if (now.difference(c.timestamp).inDays <= 7 && (c.mood?.toUpperCase() == 'NOT OKAY') && c.note != null && c.note!.isNotEmpty) {
-                                      recentSickness = c.note!.toLowerCase();
-                                      break; // Got the most recent sickness
-                                    }
-                                  }
-
-                                  if (wellnessScore < 0.3) {
-                                    wellnessText = 'Very Bad';
-                                    wellnessColor = C.red;
-                                    suggestionAction = 'Consider resting today or seeking medical advice.';
-                                  } else if (wellnessScore < 0.6) {
-                                    wellnessText = 'Needs Attention';
-                                    wellnessColor = C.orange;
-                                    suggestionAction = 'Take it easy today. Get plenty of rest.';
-                                  } else if (wellnessScore < 0.8) {
-                                    wellnessText = 'Good';
-                                    wellnessColor = C.primary;
-                                    suggestionAction = 'You are doing well, keep it up!';
-                                  }
-
-                                  if (wellnessScore < 0.8 && recentSickness != null && recentSickness != 'rather not say') {
-                                    if (recentSickness.contains('fever')) {
-                                      suggestionAction = 'Make sure to stay hydrated, monitor your temperature, and rest to recover from your fever.';
-                                    } else if (recentSickness.contains('headache')) {
-                                      suggestionAction = 'Try to rest in a quiet, dark room and drink plenty of water to ease your headache.';
-                                    } else if (recentSickness.contains('cough')) {
-                                      suggestionAction = 'Drink warm fluids and consider a throat lozenge to soothe your cough.';
-                                    } else if (recentSickness.contains('stomach')) {
-                                      suggestionAction = 'Stick to bland foods and stay hydrated. Rest your stomach.';
-                                    } else if (recentSickness.contains('fatigue')) {
-                                      suggestionAction = 'Prioritize deep sleep tonight and avoid overexertion today to recover your energy.';
-                                    } else if (recentSickness.contains('dizziness')) {
-                                      suggestionAction = 'Please avoid sudden movements and sit down. Drink water and eat a light snack.';
-                                    } else {
-                                      suggestionAction = 'Take care of yourself. Rest well and monitor your $recentSickness.';
-                                    }
-                                  }
-                                  
-                                  return Container(
-                                    width: double.infinity,
-                                    padding: const EdgeInsets.all(20),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white,
-                                      borderRadius: BorderRadius.circular(24),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: Colors.black.withValues(alpha: 0.06),
-                                          blurRadius: 16,
-                                          spreadRadius: 1,
-                                          offset: const Offset(0, 6),
-                                        ),
-                                      ],
-                                    ),
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Row(
-                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                          children: [
-                                            Text(
-                                              'Status: $wellnessText',
-                                              style: TextStyle(
-                                                fontSize: context.fs(C.fBody),
-                                                fontWeight: FontWeight.w900,
-                                                color: wellnessColor,
-                                              ),
-                                            ),
-                                            const Icon(Icons.auto_awesome, color: C.primary, size: 20),
-                                          ],
-                                        ),
-                                        const SizedBox(height: 24),
-                                        SizedBox(
-                                          height: 90,
-                                          child: Row(
-                                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                            crossAxisAlignment: CrossAxisAlignment.end,
-                                            children: List.generate(7, (index) {
-                                              final targetDate = today.subtract(Duration(days: 6 - index));
-                                              final dayLetters = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
-                                              final dayStr = dayLetters[targetDate.weekday - 1];
-                                              
-                                              final score = weeklyData[index];
-                                              final hasCheckedIn = weeklyCheckedIn[index];
-                                              final height = hasCheckedIn ? (10 + (score * 50)) : 16.0;
-                                              final color = hasCheckedIn 
-                                                  ? (score < 0.3 ? C.red : (score < 0.6 ? C.orange : (score < 0.8 ? C.primary : C.green)))
-                                                  : Colors.grey.shade300;
-                                                  
-                                              return Column(
-                                                mainAxisAlignment: MainAxisAlignment.end,
-                                                children: [
-                                                  Stack(
-                                                    alignment: Alignment.bottomCenter,
-                                                    children: [
-                                                      // Max scale background
-                                                      Container(
-                                                        width: 24,
-                                                        height: 60,
-                                                        decoration: BoxDecoration(
-                                                          color: Colors.grey.shade100,
-                                                          borderRadius: BorderRadius.circular(6),
-                                                        ),
-                                                      ),
-                                                      // Data bar
-                                                      Container(
-                                                        width: 24,
-                                                        height: height,
-                                                        decoration: BoxDecoration(
-                                                          color: color,
-                                                          borderRadius: BorderRadius.circular(6),
-                                                        ),
-                                                        child: !hasCheckedIn 
-                                                          ? const Center(child: Text('?', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)))
-                                                          : null,
-                                                      ),
-                                                    ],
-                                                  ),
-                                                  const SizedBox(height: 10),
-                                                  Text(
-                                                    index == 6 ? 'TDY' : dayStr,
-                                                    style: TextStyle(
-                                                      fontSize: context.fs(index == 6 ? C.fSub : 12.0),
-                                                      fontWeight: index == 6 ? FontWeight.w900 : FontWeight.w700,
-                                                      color: index == 6 ? C.textDark : C.textLight,
-                                                    ),
-                                                  ),
-                                                ],
-                                              );
-                                            }),
-                                          ),
-                                        ),
-                                        const SizedBox(height: 12),
-                                        Row(
-                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                          children: [
-                                            Text('Very Bad', style: TextStyle(fontSize: context.fs(C.fSub), color: C.textLight, fontWeight: FontWeight.bold)),
-                                            Text('Very Good', style: TextStyle(fontSize: context.fs(C.fSub), color: C.textLight, fontWeight: FontWeight.bold)),
-                                          ],
-                                        ),
-                                        const SizedBox(height: 16),
-                                        Container(
-                                          padding: const EdgeInsets.all(12),
-                                          decoration: BoxDecoration(
-                                            color: wellnessColor.withValues(alpha: 0.1),
-                                            borderRadius: BorderRadius.circular(12),
-                                          ),
-                                          child: Row(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              Icon(Icons.lightbulb_outline, color: wellnessColor, size: 20),
-                                              const SizedBox(width: 12),
-                                              Expanded(
-                                                child: Text(
-                                                  suggestionAction,
-                                                  style: TextStyle(fontSize: context.fs(C.fSub), color: wellnessColor, fontWeight: FontWeight.w700, height: 1.3),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  );
-                                }),
-
-                                // ── Live Location section
+                                // ΓöÇΓöÇ Live Location section
                                 const SizedBox(height: 22),
                                 StreamBuilder<LocationModel?>(
                                   stream: db.streamLocation(targetUid),
@@ -885,7 +575,7 @@ class _HomeTabState extends State<HomeTab> {
                                                 return Expanded(
                                                   child: Image.network(
                                                     LocationService.getMapTileUrl(location.lat, location.lng, dx: dx),
-                                                    headers: const {'User-Agent': 'Carely/2.0'},
+                                                    headers: const {'User-Agent': 'CareCompanion/2.0'},
                                                     fit: BoxFit.cover,
                                                     height: 160,
                                                     errorBuilder: (_, _, _) => Container(color: C.primarySoft),
@@ -935,7 +625,7 @@ class _HomeTabState extends State<HomeTab> {
                                                   borderRadius: BorderRadius.circular(4),
                                                 ),
                                                 child: const Text(
-                                                  '© OpenStreetMap',
+                                                  '┬⌐ OpenStreetMap',
                                                   style: TextStyle(fontSize: 8, color: C.textMid),
                                                 ),
                                               ),
@@ -1164,7 +854,7 @@ class _HomeTabState extends State<HomeTab> {
                                  ),
                                  const SizedBox(height: 22),
 
-                                 // ── Family Circle Section
+                                 // ΓöÇΓöÇ Family Circle Section
                                  Row(
                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                    children: [
@@ -1431,7 +1121,7 @@ class _HomeTabState extends State<HomeTab> {
                                                                final ago = loc != null ? loc.agoText.toUpperCase() : 'NEVER';
 
                                                                return Text(
-                                                                 '$label · $ago',
+                                                                 '$label ┬╖ $ago',
                                                                  style: TextStyle(
                                                                    fontSize: context.fs(C.fSub),
                                                                    color: C.textMid,
@@ -1524,7 +1214,7 @@ class _HomeTabState extends State<HomeTab> {
                                  ),
                                  const SizedBox(height: 22),
 
-                                // ── Medications header
+                                // ΓöÇΓöÇ Medications header
                                 Row(
                                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
@@ -1546,7 +1236,7 @@ class _HomeTabState extends State<HomeTab> {
                                 ),
                                 const SizedBox(height: 10),
 
-                                // ── Med list container
+                                // ΓöÇΓöÇ Med list container
                                 Container(
                                   padding: EdgeInsets.zero,
                                   decoration: const BoxDecoration(
@@ -1687,7 +1377,7 @@ class _HomeTabState extends State<HomeTab> {
                                                             ),
                                                             const SizedBox(height: 2),
                                                             Text(
-                                                              '${item.med.dosage} · ${item.time}',
+                                                              '${item.med.dosage} ┬╖ ${item.time}',
                                                               style: TextStyle(
                                                                 fontSize: context.fs(C.fSub),
                                                                 color: C.textMid,
@@ -1730,7 +1420,7 @@ class _HomeTabState extends State<HomeTab> {
                                 ),
                                 const SizedBox(height: 22),
 
-                                // ── Emergency SOS
+                                // ΓöÇΓöÇ Emergency SOS
                                  PressableCard(
                                    onTap: () => _sos(context, targetName, user.sosActive),
                                    color: user.sosActive ? C.green : C.red,
@@ -1765,7 +1455,6 @@ class _HomeTabState extends State<HomeTab> {
                                      ],
                                    ),
                                  ),
-                                 const SizedBox(height: 120),
                               ]),
                             ),
                           ),

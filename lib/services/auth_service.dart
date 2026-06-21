@@ -2,6 +2,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/user_model.dart';
 import 'firestore_service.dart';
 
@@ -130,7 +131,10 @@ class AuthService extends ChangeNotifier {
   // ─── STEP 2: Verify OTP ──────────────────────────────────
   Future<bool> verifyOtp({
     required String otp,
-    required String displayName,
+    required String username,
+    String? email,
+    String? gender,
+    DateTime? birthDate,
     required Function(String) onError,
   }) async {
     if (_verificationId == null) {
@@ -148,7 +152,10 @@ class AuthService extends ChangeNotifier {
 
     return await _handleCredential(
       credential,
-      displayName,
+      username,
+      email: email,
+      gender: gender,
+      birthDate: birthDate,
       onError: onError,
     );
   }
@@ -156,7 +163,10 @@ class AuthService extends ChangeNotifier {
   // ─── Core: sign in + create/load profile ─────────────────
   Future<bool> _handleCredential(
     PhoneAuthCredential credential,
-    String displayName, {
+    String username, {
+    String? email,
+    String? gender,
+    DateTime? birthDate,
     required Function(String) onError,
   }) async {
     try {
@@ -179,8 +189,11 @@ class AuthService extends ChangeNotifier {
         final newUser = UserModel(
           uid: user.uid,
           phone: phone,
-          displayName: displayName,
-          avatarInitials: UserModel.initialsFrom(displayName),
+          username: username,
+          email: email,
+          gender: gender,
+          birthDate: birthDate,
+          avatarInitials: UserModel.initialsFrom(username),
           avatarColorValue: UserModel.colorFrom(phone),
           createdAt: DateTime.now(),
         );
@@ -212,16 +225,29 @@ class AuthService extends ChangeNotifier {
   }
 
   // ─── UPDATE PROFILE ──────────────────────────────────────
-  Future<void> updateProfile({String? displayName, String? email}) async {
+  Future<void> updateProfile({
+    String? username, 
+    String? email,
+    String? gender,
+    DateTime? birthDate,
+  }) async {
     if (uid == null) return;
     final updates = <String, dynamic>{};
-    if (displayName != null) {
-      updates['displayName'] = displayName;
-      updates['avatarInitials'] = UserModel.initialsFrom(displayName);
+    if (username != null) {
+      updates['username'] = username;
+      updates['avatarInitials'] = UserModel.initialsFrom(username);
     }
     if (email != null) updates['email'] = email;
+    if (gender != null) updates['gender'] = gender;
+    if (birthDate != null) updates['birthDate'] = Timestamp.fromDate(birthDate);
+    
     await _db.updateUser(uid!, updates);
-    _userModel = _userModel?.copyWith(displayName: displayName, email: email);
+    _userModel = _userModel?.copyWith(
+      username: username, 
+      email: email,
+      gender: gender,
+      birthDate: birthDate,
+    );
     notifyListeners();
   }
 
