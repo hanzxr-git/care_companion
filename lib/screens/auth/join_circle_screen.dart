@@ -34,9 +34,7 @@ class _S extends State<JoinCircleScreen> {
 
     // Must be logged in first
     if (!auth.isLoggedIn) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('Please sign in or register first'),
-        behavior: SnackBarBehavior.floating));
+      C.showError(context, 'Authentication Required', 'Please sign in or register first.');
       Navigator.pushReplacement(context,
         MaterialPageRoute(builder: (_) => const PhoneScreen()));
       return;
@@ -59,10 +57,7 @@ class _S extends State<JoinCircleScreen> {
         return;
       }
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Joined "${circle.name}"!'),
-          backgroundColor: C.green,
-          behavior: SnackBarBehavior.floating));
+        C.showSuccess(context, 'Joined Circle', 'Successfully joined "${circle.name}"!');
         Navigator.of(context).popUntil((route) => route.isFirst);
       }
     } catch (e) {

@@ -591,7 +591,7 @@ class _HomeTabState extends State<HomeTab> {
                                       return PressableCard(
                                         onTap: () => _selectMood(moodName, targetUid, widget.circle.circleId, todayCheckin, streakDays),
                                         scaleOnPress: 0.9,
-                                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                        padding: EdgeInsets.symmetric(horizontal: e ? 8 : 14, vertical: 10),
                                         color: isSelected ? C.primarySoft : Colors.transparent,
                                         boxShadow: const [],
                                         borderRadius: BorderRadius.circular(16),
@@ -769,7 +769,7 @@ class _HomeTabState extends State<HomeTab> {
                                         ),
                                         const SizedBox(height: 24),
                                         SizedBox(
-                                          height: 90,
+                                          height: 105,
                                           child: Row(
                                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                             crossAxisAlignment: CrossAxisAlignment.end,
@@ -1802,11 +1802,38 @@ class _HomeTabState extends State<HomeTab> {
                 final db = ctx.read<FirestoreService>();
                 try {
                   await db.updateUser(auth.uid!, {'sosActive': !active});
+                  
+                  if (!active) {
+                    await db.submitCheckin(uid: auth.uid!, circleId: widget.circle.circleId, mood: 'SOS');
+                    for (var member in widget.circle.members) {
+                      if (member.uid != auth.uid) {
+                        await db.createNotification(
+                          member.uid,
+                          type: 'alert',
+                          title: 'SOS Alert',
+                          body: '${auth.userModel?.username ?? name} has triggered an SOS alert!',
+                        );
+                      }
+                    }
+                  } else {
+                    for (var member in widget.circle.members) {
+                      if (member.uid != auth.uid) {
+                        await db.createNotification(
+                          member.uid,
+                          type: 'success',
+                          title: 'SOS Resolved',
+                          body: '${auth.userModel?.username ?? name} has resolved their SOS alert.',
+                        );
+                      }
+                    }
+                  }
+
                   if (ctx.mounted) {
-                    ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(
-                      content: Text(active ? 'SOS Alert resolved.' : 'SOS Alert triggered!'),
-                      behavior: SnackBarBehavior.floating,
-                    ));
+                    if (active) {
+                      C.showSuccess(ctx, 'SOS Resolved', 'Emergency alert has been resolved.');
+                    } else {
+                      C.showError(ctx, 'SOS Triggered', 'Emergency alert sent to your circle.');
+                    }
                   }
                 } catch (_) {
                   // ignore

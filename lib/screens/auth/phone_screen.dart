@@ -94,9 +94,7 @@ class _S extends State<PhoneScreen> {
   }
 
   void _showError(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(msg), behavior: SnackBarBehavior.floating,
-      backgroundColor: C.red));
+    C.showError(context, 'Error', msg);
   }
 
   @override
@@ -149,7 +147,7 @@ class _S extends State<PhoneScreen> {
 
             // Name field (register only)
             if (_isRegister) ...[
-              _lbl('USERNAME'),
+              _lbl('USERNAME*'),
               TextField(
                 controller: _name,
                 textCapitalization: TextCapitalization.words,
@@ -158,7 +156,7 @@ class _S extends State<PhoneScreen> {
               ),
               const SizedBox(height: 20),
 
-              _lbl('EMAIL (OPTIONAL)'),
+              _lbl('EMAIL'),
               TextField(
                 controller: _email,
                 keyboardType: TextInputType.emailAddress,
@@ -169,7 +167,7 @@ class _S extends State<PhoneScreen> {
 
               Row(children: [
                 Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  _lbl('GENDER (OPTIONAL)'),
+                  _lbl('GENDER'),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     decoration: BoxDecoration(
@@ -200,7 +198,7 @@ class _S extends State<PhoneScreen> {
                 ])),
                 const SizedBox(width: 16),
                 Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  _lbl('BIRTH DATE (OPTIONAL)'),
+                  _lbl('BIRTH DATE'),
                   GestureDetector(
                     onTap: () async {
                       final picked = await showDatePicker(
@@ -240,7 +238,7 @@ class _S extends State<PhoneScreen> {
               const SizedBox(height: 20),
             ],
 
-            _lbl('PHONE NUMBER'),
+            _lbl('PHONE NUMBER*'),
             // Phone row: country code + number
             Row(children: [
               // Country code picker

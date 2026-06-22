@@ -406,6 +406,16 @@ class FirestoreService {
         return list.where((c) => c.timestamp.year == now.year && c.timestamp.month == now.month).toList();
       });
 
+  /// Stream all check-ins globally (for admin console)
+  Stream<List<CheckinModel>> streamAllGlobalCheckins() =>
+    _checkins
+      .snapshots()
+      .map((q) {
+        final list = q.docs.map(CheckinModel.fromDoc).toList();
+        list.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+        return list;
+      });
+
   /// Calculate current streak from previous check-ins
   Future<int> _calculateStreak(String uid, String circleId) async {
     final query = await _checkins

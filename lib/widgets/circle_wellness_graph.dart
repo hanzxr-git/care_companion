@@ -66,14 +66,19 @@ class CircleWellnessGraph extends StatelessWidget {
       
       // We'll plot up to the current day
       for (int day = 1; day <= now.day; day++) {
-        if (dailyCheckins.containsKey(day)) {
-          final c = dailyCheckins[day]!;
+        bool isTodayAndSos = (day == now.day && user.sosActive);
+        if (dailyCheckins.containsKey(day) || isTodayAndSos) {
           // Map mood to score: SOS = 0, not okay = 1, okay = 2
           double score = 2; // Default to okay
-          if (c.mood == 'SOS') {
+          if (isTodayAndSos) {
             score = 0;
-          } else if (c.note != null && c.note!.isNotEmpty) {
-            score = 1; // Assuming note means "not okay" in this simplified mapping
+          } else {
+            final c = dailyCheckins[day]!;
+            if (c.mood == 'SOS') {
+              score = 0;
+            } else if (c.note != null && c.note!.isNotEmpty) {
+              score = 1; // Assuming note means "not okay" in this simplified mapping
+            }
           }
 
           // Add a tiny Y offset based on member index so lines don't completely overlap

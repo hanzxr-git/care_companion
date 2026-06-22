@@ -52,10 +52,7 @@ class _CircleManagementScreenState extends State<CircleManagementScreen> {
     } catch (e) {
       if (mounted) {
         setState(() => _saving = false);
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Failed to rename circle. Please try again.'),
-          behavior: SnackBarBehavior.floating,
-        ));
+        C.showError(context, 'Rename Failed', 'Failed to rename circle. Please try again.');
       }
     }
   }
@@ -86,10 +83,7 @@ class _CircleManagementScreenState extends State<CircleManagementScreen> {
         }
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text('Failed to remove member.'),
-            behavior: SnackBarBehavior.floating,
-          ));
+          C.showError(context, 'Remove Failed', 'Failed to remove member.');
         }
       }
     }
@@ -123,10 +117,7 @@ class _CircleManagementScreenState extends State<CircleManagementScreen> {
         }
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text('Failed to leave circle.'),
-            behavior: SnackBarBehavior.floating,
-          ));
+          C.showError(context, 'Leave Failed', 'Failed to leave circle.');
         }
       }
     }
@@ -250,9 +241,7 @@ class _CircleManagementScreenState extends State<CircleManagementScreen> {
                                     icon: const Icon(Icons.copy_rounded, color: C.primary),
                                     onPressed: () {
                                       Clipboard.setData(ClipboardData(text: circle.inviteCode));
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(content: Text('Code copied!'), behavior: SnackBarBehavior.floating),
-                                      );
+                                      C.showSuccess(context, 'Code Copied', 'Invite code copied to clipboard!');
                                     },
                                     tooltip: 'Copy Code',
                                   ),

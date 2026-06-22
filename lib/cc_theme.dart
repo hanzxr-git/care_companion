@@ -168,6 +168,17 @@ class C {
     );
   }
 
+  static void showError(BuildContext context, String title, String message) {
+    showNotification(
+      context,
+      title: title,
+      message: message,
+      icon: Icons.error_outline_rounded,
+      color: red,
+      backgroundColor: red.withValues(alpha: 0.1),
+    );
+  }
+
   static void showLogOut(ScaffoldMessengerState messenger, String title, String message) {
     showNotificationWithMessenger(
       messenger,

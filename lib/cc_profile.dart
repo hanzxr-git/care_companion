@@ -293,7 +293,6 @@ class _ProfileTabState extends State<ProfileTab> with SingleTickerProviderStateM
                 widget.onToggleElder(v);
                 auth.setElderMode(v);
               },
-              highlight: e,
               e: e,
               context: context,
             ),
@@ -483,20 +482,21 @@ class _ProfileTabState extends State<ProfileTab> with SingleTickerProviderStateM
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) => StatefulBuilder(
-        builder: (ctx, setSheetState) => Padding(
-        padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-        child: Container(
-          padding: EdgeInsets.fromLTRB(22, 20, 22, e ? 40 : 32),
-          decoration: const BoxDecoration(
-            color: C.surface,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Drag handle
-              Center(
+        builder: (ctx, setSheetState) => SingleChildScrollView(
+          child: Padding(
+            padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+            child: Container(
+              padding: EdgeInsets.fromLTRB(22, 20, 22, e ? 40 : 32),
+              decoration: const BoxDecoration(
+                color: C.surface,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                // Drag handle
+                Center(
                 child: Container(
                   width: 36,
                   height: 4,
@@ -521,7 +521,7 @@ class _ProfileTabState extends State<ProfileTab> with SingleTickerProviderStateM
               // Pick photo option
               GestureDetector(
                 onTap: () {
-                  Navigator.pop(context);
+                  Navigator.pop(ctx);
                   _pickAvatar();
                 },
                 child: Container(
@@ -553,7 +553,7 @@ class _ProfileTabState extends State<ProfileTab> with SingleTickerProviderStateM
 
               // Display name field label
               Text(
-                'DISPLAY NAME',
+                'USERNAME',
                 style: TextStyle(
                   fontSize: context.fs(C.fCap),
                   fontWeight: FontWeight.w800,
@@ -586,7 +586,7 @@ class _ProfileTabState extends State<ProfileTab> with SingleTickerProviderStateM
 
               // Email field label
               Text(
-                'EMAIL (optional)',
+                'EMAIL',
                 style: TextStyle(
                   fontSize: context.fs(C.fCap),
                   fontWeight: FontWeight.w800,
@@ -621,7 +621,7 @@ class _ProfileTabState extends State<ProfileTab> with SingleTickerProviderStateM
               Row(children: [
                 Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text(
-                    'GENDER (optional)',
+                    'GENDER',
                     style: TextStyle(
                       fontSize: context.fs(C.fCap),
                       fontWeight: FontWeight.w800,
@@ -660,7 +660,7 @@ class _ProfileTabState extends State<ProfileTab> with SingleTickerProviderStateM
                 SizedBox(width: e ? 16 : 12),
                 Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text(
-                    'BIRTH DATE (optional)',
+                    'BIRTH DATE',
                     style: TextStyle(
                       fontSize: context.fs(C.fCap),
                       fontWeight: FontWeight.w800,
@@ -721,7 +721,12 @@ class _ProfileTabState extends State<ProfileTab> with SingleTickerProviderStateM
                       gender: gender,
                       birthDate: birthDate,
                     );
-                    if (context.mounted) Navigator.pop(context);
+                    if (ctx.mounted) {
+                      Navigator.pop(ctx);
+                    }
+                    if (context.mounted) {
+                      C.showSuccess(context, 'Profile Updated', 'Your profile details have been saved successfully.');
+                    }
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: C.primary,
@@ -740,7 +745,8 @@ class _ProfileTabState extends State<ProfileTab> with SingleTickerProviderStateM
                   ),
                 ),
               ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -748,11 +754,12 @@ class _ProfileTabState extends State<ProfileTab> with SingleTickerProviderStateM
     );
   }
 
-  void _confirmSignOut(BuildContext context, AuthService auth) {
+  void _confirmSignOut(BuildContext context, AuthService auth) async {
     final e = context.elder;
-    showDialog(
+    final messenger = ScaffoldMessenger.of(context);
+    final confirm = await showDialog<bool>(
       context: context,
-      builder: (_) => AlertDialog(
+      builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Text(
           'Sign Out?',
@@ -768,19 +775,14 @@ class _ProfileTabState extends State<ProfileTab> with SingleTickerProviderStateM
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(ctx, false),
             child: Text(
               'Cancel',
               style: TextStyle(color: C.textMid, fontSize: context.fs(C.fBody)),
             ),
           ),
           ElevatedButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              final messenger = ScaffoldMessenger.of(context);
-              await auth.signOut();
-              C.showLogOut(messenger, 'Logged Out', 'Hope to see you soon!');
-            },
+            onPressed: () => Navigator.pop(ctx, true),
             style: ElevatedButton.styleFrom(
               backgroundColor: C.red,
               foregroundColor: Colors.white,
@@ -798,6 +800,12 @@ class _ProfileTabState extends State<ProfileTab> with SingleTickerProviderStateM
         ],
       ),
     );
+
+    if (confirm == true) {
+      await Future.delayed(const Duration(milliseconds: 250)); // let dialog close
+      await auth.signOut();
+      C.showLogOut(messenger, 'Logged Out', 'Hope to see you soon!');
+    }
   }
 
   // ── Reusable UI helpers ───────────────────────────────────

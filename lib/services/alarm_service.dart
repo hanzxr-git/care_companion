@@ -167,4 +167,32 @@ class AlarmService {
     scheduledDate = scheduledDate.add(Duration(days: daysToAdd));
     return scheduledDate;
   }
+
+  /// Show an immediate notification
+  static Future<void> showImmediateNotification({
+    required int id,
+    required String title,
+    required String body,
+    String? payload,
+  }) async {
+    const androidDetails = AndroidNotificationDetails(
+      'carely_immediate_channel',
+      'Carely Alerts',
+      channelDescription: 'Important alerts and notifications from Carely',
+      importance: Importance.max,
+      priority: Priority.high,
+      icon: '@mipmap/ic_launcher',
+    );
+    const notificationDetails = NotificationDetails(
+      android: androidDetails,
+      iOS: DarwinNotificationDetails(),
+    );
+    await _notificationsPlugin.show(
+      id: id,
+      title: title,
+      body: body,
+      notificationDetails: notificationDetails,
+      payload: payload,
+    );
+  }
 }

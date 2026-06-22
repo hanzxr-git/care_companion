@@ -221,7 +221,14 @@ class NotificationsSheet extends StatelessWidget {
                               messenger.showSnackBar(SnackBar(content: Text('Error: $e')));
                             }
                           } else if (isLocal) {
-                            messenger.showSnackBar(const SnackBar(content: Text('This is a local reminder. Please complete the action.')));
+                            C.showNotificationWithMessenger(
+                              messenger,
+                              title: 'Reminder',
+                              message: 'This is a local reminder. Please complete the action.',
+                              icon: Icons.notifications_active_rounded,
+                              color: C.primary,
+                              backgroundColor: C.primarySoft,
+                            );
                           }
                         },
                         padding: const EdgeInsets.all(16),

@@ -1,4 +1,5 @@
 // main.dart
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -13,6 +14,7 @@ import 'screens/auth/phone_screen.dart';
 import 'screens/auth/setup_circle_screen.dart';
 import 'screens/auth/pending_approval_screen.dart';
 import 'models/circle_model.dart';
+import 'models/notification_model.dart';
 import 'screens/admin_console_screen.dart';
 import 'cc_shell.dart';
 
@@ -56,6 +58,16 @@ class _AppWrapperState extends State<_AppWrapper> {
   bool _elderInitialized = false;
   void _toggleElder(bool v) => setState(() => _elder = v);
   String? _activeCircleId;
+  String? _lastUid;
+  Stream<List<CircleModel>>? _circlesStream;
+  StreamSubscription<List<NotificationModel>>? _notifSub;
+  final Set<String> _seenNotifs = {};
+
+  @override
+  void dispose() {
+    _notifSub?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -93,8 +105,37 @@ class _AppWrapperState extends State<_AppWrapper> {
         }
 
         final db = Provider.of<FirestoreService>(ctx, listen: false);
+        
+        if (_lastUid != auth.uid || _circlesStream == null) {
+          _lastUid = auth.uid;
+          _circlesStream = db.streamMyCircles(auth.uid!);
+          
+          _notifSub?.cancel();
+          _notifSub = db.streamNotifications(auth.uid!).listen((notifs) {
+            for (var n in notifs) {
+              if (!n.isRead && !_seenNotifs.contains(n.id)) {
+                _seenNotifs.add(n.id);
+                // Only show system notification if the alert was created recently (within last 5 mins)
+                if (DateTime.now().difference(n.createdAt).inMinutes < 5) {
+                  try {
+                    // Safe 32-bit integer for Android
+                    final safeId = n.id.hashCode.abs() % 2147483647;
+                    AlarmService.showImmediateNotification(
+                      id: safeId,
+                      title: n.title,
+                      body: n.body,
+                    );
+                  } catch (e) {
+                    debugPrint('Error showing immediate notification: $e');
+                  }
+                }
+              }
+            }
+          });
+        }
+
         return StreamBuilder<List<CircleModel>>(
-          stream: db.streamMyCircles(auth.uid!),
+          stream: _circlesStream,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
               return const _SplashScreen();

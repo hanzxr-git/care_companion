@@ -47,10 +47,7 @@ class _PendingApprovalScreenState extends State<PendingApprovalScreen> with Sing
     } catch (e) {
       if (mounted) {
         setState(() => _cancelling = false);
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Failed to cancel request. Please try again.'),
-          behavior: SnackBarBehavior.floating,
-        ));
+        C.showError(context, 'Cancellation Failed', 'Failed to cancel request. Please try again.');
       }
     }
   }

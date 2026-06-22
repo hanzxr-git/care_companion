@@ -118,10 +118,7 @@ class _S extends State<OtpScreen> {
 
   void _showError(String msg) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(msg),
-      behavior: SnackBarBehavior.floating,
-      backgroundColor: C.red));
+    C.showError(context, 'Verification Failed', msg);
   }
 
   void _onDigitChanged(int index, String value) {
