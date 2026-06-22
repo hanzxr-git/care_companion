@@ -287,7 +287,7 @@ class _S extends State<PhoneScreen> {
                 child: _isLoading
                   ? const SizedBox(width: 22, height: 22,
                       child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5))
-                  : Text(_isRegister ? 'Send OTP' : 'Continue',
+                  : Text(_isRegister ? 'Register' : 'Continue',
                       style: const TextStyle(fontSize: C.fH3, fontWeight: FontWeight.w900)),
               ),
             ),
